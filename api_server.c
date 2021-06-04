@@ -1,0 +1,1 @@
+//Implementazione delle funzioni dell'api per comunicare con il server 
