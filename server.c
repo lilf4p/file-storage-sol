@@ -49,7 +49,7 @@ int main () {
     int max_dim;
     char * socket_name = "/tmp/LSOfilestorage.sk";
 
-    //TODO : parsing file config.txt 
+    //TODO : parsing file config.txt -- attributo=valore 
 
     //--------GESTIONE SEGNALI---------//
     struct sigaction s;
@@ -61,7 +61,7 @@ int main () {
 
     SYSCALL(sigaction(SIGINT,&s,NULL),"sigaction");
     SYSCALL(sigaction(SIGQUIT,&s,NULL),"sigaction");
-    SYSCALL(sigaction(SIGHUP,&s,NULL),"sigaction");
+    SYSCALL(sigaction(SIGHUP,&s,NULL),"sigaction"); //TERMINAZIONE SOFT
 
     //ignoro SIGPIPE
     s.sa_handler = SIG_IGN;
@@ -90,6 +90,9 @@ int main () {
     fd_set set;
     fd_set rdset;
     char buf_pipe[4];
+    //PER LA TERMINAZIONE SOFT 
+    int num_client = 0; 
+    int soft_term = 0; 
 
     struct sockaddr_un sa;
     strncpy(sa.sun_path,socket_name,UNIX_PATH_MAX);
@@ -117,8 +120,13 @@ int main () {
         rdset = set;
         if (select(num_fd+1,&rdset,NULL,NULL,NULL) == -1) {
             if (term==1) break;
-            else {
-                perror("accept");
+            else if (term==2) {
+                if (num_client==0) break;
+                else {
+                   SYSCALL(select(num_fd+1,&rdset,NULL,NULL,NULL),"select"); 
+                }
+            }else {
+                perror("select");
                 exit(EXIT_FAILURE);
             }
         } 
@@ -129,13 +137,16 @@ int main () {
 
                     if ((cfd = accept(sfd,NULL,0)) == -1) {
                         if (term==1) break;
-                        else {
+                        else if (term==2) {
+                            if (num_client==0) break;
+                        }else {
                             perror("accept");
                             exit(EXIT_FAILURE);
                         }
                     }
                     FD_SET(cfd,&set);
                     if (cfd > num_fd) num_fd = cfd;
+                    num_client++;
                     printf ("Connection accepted from client!\n");
                     SYSCALL(write(cfd,"Welcome to lilf4p server!",26),"Write Socket");
 
@@ -151,6 +162,11 @@ int main () {
                             FD_CLR(cfd1,&set);
                             if (cfd1 == num_fd) num_fd = updatemax(set,num_fd);
                             close(cfd1);
+                            num_client--;
+                            if (term==2 && num_client==0) {
+                                printf("Chiusura soft\n");
+                                soft_term=1;
+                            }
                         }else{
                             FD_SET(cfd1,&set);
                             if (cfd1 > num_fd) num_fd = cfd1;
@@ -168,6 +184,7 @@ int main () {
                 }
             }
         }
+        if (soft_term==1) break;
     }
 
     //TODO : STAMPA STATISTICHE RIASSUNTE  
@@ -297,5 +314,6 @@ static void gestore_term (int signum) {
         term = 1;
     } else if (signum==SIGHUP) {
         //TODO : gestisci terminazione soft 
+        term = 2;
     } 
 }
