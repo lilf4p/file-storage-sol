@@ -90,7 +90,7 @@ int main () {
     fd_set set;
     fd_set rdset;
     char buf_pipe[4];
-    //PER LA TERMINAZIONE SOFT 
+    //PER LA TERMINAZIONE SOFT --> con SIGHUP aspetta che tutti i client si disconnettano
     int num_client = 0; 
     int soft_term = 0; 
 
@@ -120,21 +120,26 @@ int main () {
         rdset = set;
         if (select(num_fd+1,&rdset,NULL,NULL,NULL) == -1) {
             if (term==1) break;
-            else if (term==2) {
+            else if (term==2) { 
                 if (num_client==0) break;
                 else {
-                   SYSCALL(select(num_fd+1,&rdset,NULL,NULL,NULL),"select"); 
+                    printf("Chiusura Soft...\n");
+                    FD_CLR(sfd,&set);
+                    if (sfd == num_fd) num_fd = updatemax(set,num_fd);
+                    close(sfd);
+                    rdset = set;
+                    SYSCALL(select(num_fd+1,&rdset,NULL,NULL,NULL),"select"); 
                 }
             }else {
                 perror("select");
                 exit(EXIT_FAILURE);
             }
-        } 
+        }
+
         int cfd;
         for (fd=0;fd<= num_fd;fd++) {
             if (FD_ISSET(fd,&rdset)) {
                 if (fd == sfd) { //WELCOME SOCKET PRONTO X ACCEPT
-
                     if ((cfd = accept(sfd,NULL,0)) == -1) {
                         if (term==1) break;
                         else if (term==2) {
