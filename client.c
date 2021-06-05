@@ -22,6 +22,9 @@ int main (int argc, char * argv[]) {
     ffnd=0;
     pfnd=0;
 
+    //OK GESTIONE ARGOMENTI
+    //UNICO ARGOMENTO DA TOKENIZZARE CON TOKEN ','
+
     while ((opt = getopt(argc,argv,"hpf:w:W:r:R:d:t:c:")) != -1) {
         switch (opt) {
             case 'h':
