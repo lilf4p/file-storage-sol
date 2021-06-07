@@ -2,11 +2,20 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <time.h>
 #include "api_server.h"
+
+/*
+
+gcc -c api_server.c -o api_server.o
+ar rcs libapi.a api_server.o
+gcc client.c -o client -L ./ -lapi
+
+*/
 
 #define DIM_MSG 100
 // utility macro
-#define SYSCALL(c,e) \
+#define APICALL(c,e) \
     if(c==-1) { perror(e);exit(EXIT_FAILURE); }
 
 long isNumber(const char* s);
@@ -27,6 +36,7 @@ int main (int argc, char * argv[]) {
 
     while ((opt = getopt(argc,argv,"hpf:w:W:r:R:d:t:c:")) != -1) {
         switch (opt) {
+
             case 'h':
                 hfnd++;
                 if (hfnd==1) {
@@ -37,6 +47,7 @@ int main (int argc, char * argv[]) {
                     exit(EXIT_FAILURE);
                 }
                 break;
+
             case 'p':
                 pfnd++;
                 if (pfnd==1) {
@@ -46,6 +57,7 @@ int main (int argc, char * argv[]) {
                     exit(EXIT_FAILURE);
                 }
                 break;
+
             case 'f':
                 ffnd++;
                 if (ffnd==1) {
@@ -55,43 +67,58 @@ int main (int argc, char * argv[]) {
                     printf("L'opzione -f non puo' essere ripetuta\n");
                     exit(EXIT_FAILURE);
                 }
+                
+                struct timespec ts;
+                clock_gettime(CLOCK_REALTIME,&ts);
+                ts.tv_sec = ts.tv_sec+60;
+                APICALL(openConnection(farg,1000,ts),"openConnection");
                 break;
+
             case 'w':
                 warg=optarg;
                 printf("Opzione -w con argomento %s\n",warg);
                 //TODO : ESEGUI COMANDO CON API
                 break;
+
             case 'W':
                 Warg=optarg;
                 printf("Opzione -W con argomento %s\n",Warg);
                 break;
+
             case 'r':
                 rarg=optarg;
                 printf("Opzione -r con argomento %s\n",rarg);
                 break;
+
             case 'R':
                 Rarg=optarg;
                 printf("Opzione -R con argomento %s\n",Rarg);
                 break;
+
             case 'd':
                 darg=optarg;
                 printf("Opzione -d con argomento %s\n",darg);
                 break;
+
             case 't': 
                 targ=optarg;
                 printf("Opzione -t con argomento %s\n",targ);
                 break;
+
             case 'c': 
                 carg=optarg;
                 printf("Opzione -c con argomento %s\n",carg);
                 break;
+
             case '?':
                 printf("l'opzione '-%c' non e' gestita\n", optopt);
                 fprintf (stderr,"%s -h per vedere la lista delle operazioni supportate\n",argv[0]);
                 break;
+
             case ':':
                 printf("l'opzione '-%c' richiede un argomento\n", optopt);
                 break;
+
             default:;
         }
     }
