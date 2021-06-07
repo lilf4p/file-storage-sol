@@ -25,7 +25,16 @@ typedef struct node {
     struct node  * next;
 } node;
 
-//TODO : STRUTTURA DATI PER SALVARE I FILE 
+typedef struct file {
+    char * path;
+    char * data;
+    //info utili per ogni file
+    struct file * next; 
+} file;
+
+//TODO : STRUTTURA DATI PER SALVARE I FILE
+file * cache_file = NULL;
+pthread_mutex_t lock_cache = PTHREAD_MUTEX_INITIALIZER;
 
 node * coda = NULL; //CODA DI COMUNICAZIONE MANAGER --> WORKERS / RISORSA CONDIVISA / CODA FIFO 
 pthread_mutex_t lock_coda = PTHREAD_MUTEX_INITIALIZER;
@@ -38,6 +47,10 @@ void insertNode (node ** list, int data);
 int removeNode (node ** list);
 int updatemax(fd_set set, int fdmax);
 static void gestore_term (int signum);
+void addFile (file ** list, file * f);
+char * getFile (file * list, char * path, int cfd);
+void removeFile (file ** list, char * path, int cfd);
+void eseguiRichiesta (char * request, int cfd); 
 
 int main () {
 
@@ -233,7 +246,7 @@ void * worker (void * arg) {
             printf ("From Client : %s\n",request);
 
             //TODO : ELABORA RICHIESTA CLIENT
-
+            eseguiRichiesta(request,cfd);
             //INVIA LA RISPOSTA AL CLIENT
             SYSCALL(write(cfd,"PROVA",6),"THREAD : socket write");
             //RITORNA IL CLIENT AL MANAGER TRAMITE LA PIPE
@@ -259,7 +272,7 @@ void insertNode (node ** list, int data) {
     //fflush(stdout);
     int err;
     //PRENDO LOCK
-    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_coda),"Lock");
+    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_coda),"Lock coda");
     node * new = malloc (sizeof(node));
     new->data = data;
     new->next = *list;
@@ -267,7 +280,7 @@ void insertNode (node ** list, int data) {
     //INSERISCI IN TESTA
     *list = new;
     //INVIO SIGNAL
-    SYSCALL_PTHREAD(err,pthread_cond_signal(&not_empty),"Signal");
+    SYSCALL_PTHREAD(err,pthread_cond_signal(&not_empty),"Signal coda");
     //RILASCIO LOCK
     pthread_mutex_unlock(&lock_coda);
 }
@@ -276,7 +289,7 @@ void insertNode (node ** list, int data) {
 int removeNode (node ** list) {
     int err;
     //PRENDO LOCK
-    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_coda),"Lock");
+    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_coda),"Lock coda");
     //ASPETTO CONDIZIONE VERIFICATA 
     while (coda==NULL) {
         pthread_cond_wait(&not_empty,&lock_coda);
@@ -321,4 +334,68 @@ static void gestore_term (int signum) {
         //TODO : gestisci terminazione soft 
         term = 2;
     } 
+}
+
+//INSERISCO IN TESTA --> I FILE INSERITI PRIMA (DA PIU' TEMPO IN CACHE) SARANNO IN FONDO 
+void addFile (file ** list, file * f) {
+    
+    int err;
+
+    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
+
+    f->next = *list;
+    *list =  f;
+
+    pthread_mutex_unlock(&lock_cache);
+
+}
+
+//RECUPERA UN FILE DALLA LISTA SE PRESENTE, MESSAGGIO DI ERRORE ALTRIMENTI
+char * getFile (file * list, char * path, int cfd) {
+    int err;
+    char * response = NULL;
+
+    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
+
+    file * curr = list;
+    int trovato=0;
+    while(curr!=NULL && trovato==0) {
+        if (strcmp(curr->path,path)==0) {
+            response = curr->data;
+            trovato=1;
+        } 
+    }
+
+    pthread_mutex_unlock(&lock_cache);
+
+    if (response == NULL) {
+        if (trovato==0) response = "File non trovato!";
+        else response = "File vuoto!";
+    }
+
+    return response; 
+
+} 
+
+//REQUEST CONTIENE : COMANDO,ARGOMENTI SEPARATI DA VIRGOLA
+void eseguiRichiesta (char * request, int cfd) {
+    char * response;
+    char * token;
+    strtok(request,",");
+
+    if (strcmp(token,"openFile")==0) {
+
+        token = strtok(NULL,",");
+        char * path = token;
+        token = strtok(NULL,",");
+        int flag = atoi(token);
+
+        file * f = malloc (sizeof(f));
+        f->path = path;
+        f->data = NULL;
+        addFile(&cache_file,f);
+        SYSCALL(write(cfd,"1",1),"THREAD : socket write");
+    } else {
+        SYSCALL(write(cfd,"-1",1),"THREAD : socket write");
+    }    
 }

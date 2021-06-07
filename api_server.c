@@ -55,6 +55,7 @@ int openConnection(const char* sockname, int msec,const struct timespec abstime)
 
 }
 
+//ritorna 0 se ha successo -- ha successo sse sono connesso al socket sockname (equivale ad aver fatto prima una openConnection con sockname)
 //errore se sockname non corretto, o se non connesso 
 int closeConnection(const char* sockname) {
 
@@ -73,6 +74,29 @@ int closeConnection(const char* sockname) {
     }
 }
 
+//FLAGS (O_CREATE) VALE 0 o 1
+int openFile(const char* pathname, int flags) {
+    
+    if (connesso==0) {
+        errno=EPERM;
+        return -1;
+    }
+    char buffer[N];
+    sprintf(buffer, "openFile,%s,%d",pathname,flags);
+
+    SYSCALL(write(sc,buffer,sizeof(buffer)),"write");
+
+    SYSCALL(read(sc,response,N),"read");
+    printf("From Server : %s\n",response);
+
+    if (strcmp(response,"-1")==0) {
+        errno=EINVAL;
+        return -1;
+    }
+    
+    return 0;
+
+}
 
 //-------------FUNZIONI DI UTILITY--------------//
 

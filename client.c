@@ -18,6 +18,8 @@ gcc client.c -o client -L ./ -lapi
 #define APICALL(c,e) \
     if(c==-1) { perror(e);exit(EXIT_FAILURE); }
 
+int flag_stampa=0;
+
 long isNumber(const char* s);
 
 int main (int argc, char * argv[]) {
@@ -40,6 +42,7 @@ int main (int argc, char * argv[]) {
             case 'h':
                 hfnd++;
                 if (hfnd==1) {
+                    if (flag_stampa==1) printf("Operazione : -h (help message)\n");
                     printf("Operazioni supportate : \n-h\n-f filename\n-w dirname[n=0]\n-W file1[,file2]\n-r file1[,file2]\n-R [n=0]\n-d dirname\n-t time\n-c file1[,file2]\n-p\n");
                     return 0;
                 }else if (hfnd>1) {
@@ -51,7 +54,8 @@ int main (int argc, char * argv[]) {
             case 'p':
                 pfnd++;
                 if (pfnd==1) {
-                    printf("Opzione -p\n");
+                    flag_stampa=1;
+                    printf("Operazione : -p (abilta stampe)\n");
                 }else if (pfnd>1) {
                     printf("L'opzione -p non puo' essere ripetuta\n");
                     exit(EXIT_FAILURE);
@@ -62,7 +66,7 @@ int main (int argc, char * argv[]) {
                 ffnd++;
                 if (ffnd==1) {
                     farg=optarg;
-                    printf("Opzione -f con argomento : %s\n",farg);
+                    if (flag_stampa==1) printf("Operazione : -f (connessione) - file : %s\n",farg);
                 }else if (ffnd>1) {
                     printf("L'opzione -f non puo' essere ripetuta\n");
                     exit(EXIT_FAILURE);
