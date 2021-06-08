@@ -28,15 +28,18 @@ typedef struct node {
 typedef struct file {
     char * path;
     char * data;
+    //node * client_open;
     //info utili per ogni file
     struct file * next; 
 } file;
+
 
 //TODO : STRUTTURA DATI PER SALVARE I FILE
 file * cache_file = NULL;
 pthread_mutex_t lock_cache = PTHREAD_MUTEX_INITIALIZER;
 
-node * coda = NULL; //CODA DI COMUNICAZIONE MANAGER --> WORKERS / RISORSA CONDIVISA / CODA FIFO 
+//CODA DI COMUNICAZIONE MANAGER --> WORKERS / RISORSA CONDIVISA / CODA FIFO
+node * coda = NULL;  
 pthread_mutex_t lock_coda = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t not_empty = PTHREAD_COND_INITIALIZER;
 
@@ -47,17 +50,21 @@ void insertNode (node ** list, int data);
 int removeNode (node ** list);
 int updatemax(fd_set set, int fdmax);
 static void gestore_term (int signum);
-void addFile (file ** list, file * f);
-char * getFile (file * list, char * path, int cfd);
-void removeFile (file ** list, char * path, int cfd);
-void eseguiRichiesta (char * request, int cfd); 
+int addFile (char * path, int flags, int cfd);
+char * getFile (char * path, int cfd);
+void removeFile (char * path, int cfd);
+void eseguiRichiesta (char * request, int cfd);
+int sizeList ();
+void printFile ();
+int containFile (char * path); //1 se lo contiene, 0 se non lo contiene 
+
 
 int main () {
 
     int i;
 
     //parametri server da settare con il config.txt
-    int num_thread = 5;
+    int num_thread = 4;
     int max_file;
     int max_dim;
     char * socket_name = "/tmp/LSOfilestorage.sk";
@@ -213,6 +220,9 @@ int main () {
     }
     close(sfd);
     remove("/tmp/mysock");
+    free(coda);
+    free(thread_pool);
+    free(cache_file);
 
     return 0;
 }
@@ -222,12 +232,12 @@ int main () {
 void * worker (void * arg) {
 
     int pfd = *((int *)arg);
-    char request[DIM_MSG];
-    char response[DIM_MSG];
     int new = 1;
     int cfd;
 
     while (1) {
+        char request[DIM_MSG];
+        char response[DIM_MSG];
         //PRELEVA UN CLIENT DALLA CODA
         cfd = removeNode(&coda);
         if (cfd==-1) break;
@@ -244,11 +254,13 @@ void * worker (void * arg) {
             exit(EXIT_FAILURE);
         }else{
             printf ("From Client : %s\n",request);
+            fflush(stdout);
 
             //TODO : ELABORA RICHIESTA CLIENT
+            printf("NUMERO FILE : %d",sizeList());
+            printFile();
             eseguiRichiesta(request,cfd);
-            //INVIA LA RISPOSTA AL CLIENT
-            SYSCALL(write(cfd,"PROVA",6),"THREAD : socket write");
+            
             //RITORNA IL CLIENT AL MANAGER TRAMITE LA PIPE
             SYSCALL(write(pfd,&cfd,sizeof(cfd)),"THREAD : pipe write");
             fine = 0;
@@ -337,32 +349,61 @@ static void gestore_term (int signum) {
 }
 
 //INSERISCO IN TESTA --> I FILE INSERITI PRIMA (DA PIU' TEMPO IN CACHE) SARANNO IN FONDO 
-void addFile (file ** list, file * f) {
+int addFile (char * path, int flag, int cfd) {
     
+    int res=0;
     int err;
 
     SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
 
-    f->next = *list;
-    *list =  f;
+    file ** list = &cache_file;
+
+    int trovato = containFile(path);
+
+    if (flag==1 && trovato==0) { //CREO IL FILE -- LO INSERISCO IN TESTA 
+        printf("ADDFILE : CREO FILE\n");
+        fflush(stdout);
+        file * f = malloc(sizeof(file));
+        f->path = path;
+        f->data = NULL;
+        f->next = *list;
+        *list =  f;
+    }else if (flag==0 && trovato==1) { //APRO IL FILE PER CFD
+        printf("ADDFILE : APRO FILE\n");
+        //node * new = malloc (sizeof(node));
+        //new->data = cfd;
+        //new->next = curr->client_open;
+        //curr->client_open = new;
+    }else {
+        res=-1; //ERRORE
+        printf("ADDFILE : ERRORE\n");
+        printf("PATH : %s\n",path);
+        printf("trovato = %d\n",trovato);
+        printf("flag = %d\n",flag);
+        fflush(stdout);
+    }
 
     pthread_mutex_unlock(&lock_cache);
+
+    return res;
 
 }
 
 //RECUPERA UN FILE DALLA LISTA SE PRESENTE, MESSAGGIO DI ERRORE ALTRIMENTI
-char * getFile (file * list, char * path, int cfd) {
+char * getFile (char * path, int cfd) {
     int err;
     char * response = NULL;
 
     SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
-
-    file * curr = list;
+    file ** list = &cache_file;
+    file * curr = *list;
     int trovato=0;
     while(curr!=NULL && trovato==0) {
         if (strcmp(curr->path,path)==0) {
             response = curr->data;
             trovato=1;
+        }else{
+            curr = curr->next;
         } 
     }
 
@@ -379,23 +420,62 @@ char * getFile (file * list, char * path, int cfd) {
 
 //REQUEST CONTIENE : COMANDO,ARGOMENTI SEPARATI DA VIRGOLA
 void eseguiRichiesta (char * request, int cfd) {
-    char * response;
+    char response[DIM_MSG];
     char * token;
-    strtok(request,",");
+    token = strtok(request,",");
 
     if (strcmp(token,"openFile")==0) {
+        //openFile,pathname,flags
 
+        //ARGOMENTI 
         token = strtok(NULL,",");
         char * path = token;
         token = strtok(NULL,",");
         int flag = atoi(token);
-
-        file * f = malloc (sizeof(f));
-        f->path = path;
-        f->data = NULL;
-        addFile(&cache_file,f);
-        SYSCALL(write(cfd,"1",1),"THREAD : socket write");
+        printFile();
+        //ELABORA COMANDO
+        if (addFile(path,flag,cfd) == -1) {
+            sprintf(response,"-1,%d",EPERM);
+        }else{
+            sprintf(response,"0");
+        }
+        SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
+        printf("NUMERO FILE : %d\n",sizeList());
+        printFile();
     } else {
-        SYSCALL(write(cfd,"-1",1),"THREAD : socket write");
+        //ENOSYS
+        sprintf(response,"-1,%d",ENOSYS);
+        SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
     }    
+}
+
+int sizeList () {
+    int size=0;
+    file * curr = cache_file;
+    while (curr!=NULL) {
+        size++;
+        curr = curr->next;
+    }
+    return size;
+}
+
+void printFile () {
+    printf ("Lista File : \n");
+    fflush(stdout);
+    file * curr = cache_file;
+    while (curr!=NULL) {
+        printf("%s\n",curr->path); 
+        fflush(stdout);
+        curr = curr->next;
+    }
+}
+
+int containFile (char * path) {
+
+    file * curr = cache_file;
+    while (curr!=NULL) {
+        if ((strcmp(path,curr->path) == 0)) return 1;
+        curr = curr->next;
+    }
+    return 0;
 }

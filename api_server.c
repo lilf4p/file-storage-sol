@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <time.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define N 100
 #define UNIX_PATH_MAX 108 /* man 7 unix */ 
@@ -78,20 +80,27 @@ int closeConnection(const char* sockname) {
 int openFile(const char* pathname, int flags) {
     
     if (connesso==0) {
-        errno=EPERM;
+        errno=ENOTCONN;
         return -1;
     }
     char buffer[N];
     sprintf(buffer, "openFile,%s,%d",pathname,flags);
 
-    SYSCALL(write(sc,buffer,sizeof(buffer)),"write");
+    SYSCALL(write(sc,buffer,N),EREMOTEIO);
 
-    SYSCALL(read(sc,response,N),"read");
+    SYSCALL(read(sc,response,N),EREMOTEIO);
     printf("From Server : %s\n",response);
+    fflush(stdin);
 
-    if (strcmp(response,"-1")==0) {
-        errno=EINVAL;
+    char * token;
+    token = strtok(response,",");
+
+    if (strcmp(token,"-1")==0) { //ERRORE DAL SERVER
+        token = strtok(NULL,",");
+        errno = atoi(token);
         return -1;
+    }else{ //SUCCESSO DAL SERVER 
+        return 0;
     }
     
     return 0;

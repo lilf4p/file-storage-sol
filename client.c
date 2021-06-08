@@ -87,6 +87,17 @@ int main (int argc, char * argv[]) {
             case 'W':
                 Warg=optarg;
                 printf("Opzione -W con argomento %s\n",Warg);
+                char * file;
+                file = strtok(Warg,",");
+                while(file != NULL) {
+                    //per ogni file passato come argomento esegui open-write-close
+                    if (openFile(file,1)==-1) {
+                        perror("openFile");
+                    }
+                    printf("TOKEN\n");
+                    file = strtok(NULL,",");
+                }
+
                 break;
 
             case 'r':
@@ -127,7 +138,8 @@ int main (int argc, char * argv[]) {
         }
     }
     
-
+    //FINITE LE OPZIONI DA LINEA DI COMANDO CHIUDO LA CONNESSIONE SE ERA APERTA
+    closeConnection(farg);
 
     return 0;
 }
