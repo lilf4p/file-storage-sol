@@ -9,6 +9,8 @@
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #define N 100
 #define UNIX_PATH_MAX 108 /* man 7 unix */ 
@@ -114,8 +116,26 @@ int writeFile(const char* pathname, const char* dirname) {
         return -1;
     }
 
+    FILE *fp;
+    int size_file;
+    if ((fp = fopen(pathname,"r")) == NULL) {
+        errno = EREMOTEIO;
+        return -1;
+    }
+    struct stat st;
+    stat(pathname,&st);
+    size_file = st.st_size;
+    char * file_buffer = malloc((size_file+1)*sizeof(char));
+    if (file_buffer==NULL) {
+        errno = ENOMEM;
+        return -1;
+    }
+
+    //PRIMA INVIO IL PATHNAME AL SERVER PER CONTROLLARE DI POTER SCRIVERE IL FILE
     char buffer[N];
-    sprintf(buffer, "writeFile,%s,%s",pathname,dirname);
+    sprintf(buffer,"writeFile,%s",pathname);
+
+    SYSCALL(write(sc,buffer,N),EREMOTEIO);
 
     SYSCALL(read(sc,response,N),EREMOTEIO);
     printf("From Server : %s\n",response);
@@ -127,10 +147,43 @@ int writeFile(const char* pathname, const char* dirname) {
         t = strtok(NULL,",");
         errno = atoi(t);
         return -1;
+    }
+
+    //POSSO SCRIVERE IL FILE SUL SERVER 
+
+    //LEGGO IL FILE E LO SCRIVO NEL BUFFER DA INVIARE 
+    size_t newLen = fread(file_buffer,sizeof(char),size_file,fp);
+    if (ferror(fp) != 0) {
+        errno = EREMOTEIO;
+        return -1;
+    }else{
+        file_buffer[newLen++] = '\0';
+    }
+    fclose(fp);
+
+    //INVIO SIZE FILE
+    SYSCALL(write(sc,&size_file,sizeof(size_file)),EREMOTEIO);
+
+    //INVIO FILE
+    SYSCALL(write(sc,file_buffer,size_file),EREMOTEIO);
+
+    //SEVER RISPONDE 0 SE OK -1,ERRNO SE ERRORE
+    char response2[N];
+    SYSCALL(read(sc,response2,N),EREMOTEIO);
+    printf("From Server : %s\n",response2);
+
+    char * t1;
+    t1 = strtok(response2,",");
+
+    if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
+        t1 = strtok(NULL,",");
+        errno = atoi(t1);
+        return -1;
     }else{ //SUCCESSO DAL SERVER 
         return 0;
     }
 
+    free(file_buffer);
 
 }
 
@@ -164,7 +217,7 @@ int closeFile(const char* pathname) {
 
 int removeFile(const char* pathname) {
 
-    if (connesso==0) {
+    if (connesso==0) {     
         errno=ENOTCONN;
         return -1;
     }
@@ -187,7 +240,7 @@ int removeFile(const char* pathname) {
     }else{ //SUCCESSO DAL SERVER 
         return 0;
     }
-    
+
 }
 
 

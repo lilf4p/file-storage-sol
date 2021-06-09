@@ -92,7 +92,11 @@ int main (int argc, char * argv[]) {
                     if (openFile(file,0)==-1) {
                         perror("openFile");
                     }
-                    printf("TOKEN\n");
+
+                    if (closeFile(file)==-1) {
+                        perror("closeFile");
+                    }
+
                     token1 = strtok_r(NULL,",",&save1);
 
                 }
@@ -112,7 +116,10 @@ int main (int argc, char * argv[]) {
                         perror("openFile");
                     }
 
-                    //WRITE FILE 
+                    //WRITE FILE
+                    if (writeFile(file,NULL)==-1) {
+                        perror("writeFile");
+                    } 
 
                     if (closeFile(file)==-1) {
                         perror("closeFile");

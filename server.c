@@ -29,6 +29,7 @@ typedef struct file {
     char * path;
     char * data;
     node * client_open;
+    int client_write; //FILE DESCRIPTOR DEL CLIENT CHE HA ESEGUITO COME ULTIMA OPERAZIONE UNA openFile con flag O_CREATE
     //info utili per ogni file
     struct file * next; 
 } file;
@@ -58,6 +59,7 @@ int addFile (char * path, int flags, int cfd);
 char * getFile (char * path, int cfd);
 int removeFile (char * path);
 int removeClient (char * path, int cfd);
+int insertData(char * path, char * data);
 int sizeList ();
 void printFile ();
 int containFile (char * path); //1 se lo contiene, 0 se non lo contiene
@@ -337,6 +339,46 @@ void eseguiRichiesta (char * request, int cfd) {
         printf("NUMERO FILE : %d\n",sizeList());
         printFile();
 
+    }else if (strcmp(token,"writeFile")==0) {
+        //writeFile,pathname
+        
+        //ARGOMENTI
+        token = strtok(NULL,",");
+        char * path = token;
+
+        //CONTROLLA DI POTER SCRIVERE IL FILE -- CONTOLLA CHE ESISTA,APERTO E ULTIMA OPERAZIONE OPEN CON FLAG 
+        int ok = 1;
+
+        //INVIA AL CLIENT PERMESSO PER INVIARE FILE O ERRORE
+        if (ok) {
+            sprintf(response,"0");
+
+            SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
+
+            //RICEVO DAL CLIENT SIZE FILE 
+            char buf1[DIM_MSG];
+            SYSCALL(read(cfd,buf1,sizeof(buf1)),"THREAD : socket read2");
+            int size_file = atoi(buf1);
+
+            //E IL FILE
+            char * buf2 = malloc ((size_file+1)*sizeof(char));
+            if (buf2==NULL) {
+                fprintf(stderr,"malloc fail\n");
+                exit(EXIT_FAILURE);
+            }
+            SYSCALL(read(cfd,buf2,sizeof(buf2)),"THREAD : socket read3");
+
+            //INSERISCO I DATI NELLA CACHE 
+            insertData(path, buf2);
+
+
+        }else{
+
+            sprintf(response,"-1,%d",EPERM);
+            SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
+
+        }
+
     } else {
         //ENOSYS
         sprintf(response,"-1,%d",ENOSYS);
@@ -443,6 +485,7 @@ int addFile (char * path, int flag, int cfd) {
         file * f = malloc(sizeof(file));
         f->path = path;
         f->data = NULL;
+        f->client_write = cfd;
         f->client_open = NULL;
         node * new = malloc (sizeof(node));
         new->data = cfd;
@@ -479,10 +522,11 @@ char * getFile (char * path, int cfd) {
 
     SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
     file ** list = &cache_file;
-    file * curr = *list;
+    file * curr = cache_file;
     int trovato=0;
     while(curr!=NULL && trovato==0) {
         if (strcmp(curr->path,path)==0) {
+            //TODO : CONTROLLA CHE CFD ABBIA APERTO IL FILE !!!
             response = curr->data;
             trovato=1;
         }else{
@@ -492,10 +536,12 @@ char * getFile (char * path, int cfd) {
 
     pthread_mutex_unlock(&lock_cache);
 
+    /*
     if (response == NULL) {
         if (trovato==0) response = "File non trovato!";
         else response = "File vuoto!";
     }
+    */
 
     return response; 
 
@@ -563,14 +609,40 @@ int removeClient (char * path, int cfd) {
                     prec->next = tmp->next;
                 }
                 free(tmp);
+                curr->client_write=-1;
             }else{
                 prec = tmp;
                 tmp = tmp->next;
             }
         }
     }
+    
     //TROVATO == 0 --> FILE NON ESISTE , RIMOSSO == 0 --> FILE NON APERTO DAL CLIENT
     if (trovato == 0 || rimosso == 0) res=-1;
+
+    pthread_mutex_unlock(&lock_cache);
+
+    return res;
+}
+
+int insertData(char * path, char * data) {
+
+    int res=0;
+    int err;
+    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
+
+    file ** list = &cache_file;
+
+    int trovato = 0;
+    file * curr = cache_file;
+    while (curr!=NULL && trovato==0) {
+        if ((strcmp(path,curr->path) == 0)) {
+            trovato=1;
+            curr->data = data;
+        } else curr = curr->next;
+    }
+
+    if (trovato==0) res=-1;
 
     pthread_mutex_unlock(&lock_cache);
 
