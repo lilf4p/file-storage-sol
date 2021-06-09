@@ -107,10 +107,17 @@ int main (int argc, char * argv[]) {
                 while(token2) {
                     char * file = token2;
                     //per ogni file passato come argomento esegui open-write-close
+
                     if (openFile(file,1)==-1) {
                         perror("openFile");
                     }
-                    printf("TOKEN\n");
+
+                    //WRITE FILE 
+
+                    if (closeFile(file)==-1) {
+                        perror("closeFile");
+                    }
+
                     token2 = strtok_r(NULL,",",&save2);
 
                 }
@@ -146,8 +153,8 @@ int main (int argc, char * argv[]) {
                 while(token3) {
                     char * file = token3;
                     //per ogni file passato come argomento esegui open-write-close
-                    if (closeFile(file)==-1) {
-                        perror("closeFile");
+                    if (removeFile(file)==-1) {
+                        perror("removeFile");
                     }
                     //printf("TOKEN\n");
                     token3 = strtok_r(NULL,",",&save3);

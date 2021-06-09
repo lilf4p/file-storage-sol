@@ -46,19 +46,22 @@ pthread_cond_t not_empty = PTHREAD_COND_INITIALIZER;
 volatile sig_atomic_t term = 0; //FLAG SETTATO DAL GESTORE DEI SEGNALI DI TERMINAZIONE
 
 void * worker (void * arg);
+
 void insertNode (node ** list, int data);
 int removeNode (node ** list);
 int updatemax(fd_set set, int fdmax);
 static void gestore_term (int signum);
+
+void eseguiRichiesta (char * request, int cfd);
+
 int addFile (char * path, int flags, int cfd);
 char * getFile (char * path, int cfd);
-void removeFile (char * path, int cfd);
-void eseguiRichiesta (char * request, int cfd);
+int removeFile (char * path);
+int removeClient (char * path, int cfd);
 int sizeList ();
 void printFile ();
 int containFile (char * path); //1 se lo contiene, 0 se non lo contiene
 void printClient (node * list); //STAMPA LISTA DI CLIENT (FILE DESCRIPTOR SOCKET)
-int removeClient (char * path, int cfd);
 
 
 int main () {
@@ -301,6 +304,7 @@ void eseguiRichiesta (char * request, int cfd) {
         SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
         printf("NUMERO FILE : %d\n",sizeList());
         printFile();
+
     }else if (strcmp(token,"closeFile")==0) {
         //closeFile,pathname
 
@@ -316,6 +320,23 @@ void eseguiRichiesta (char * request, int cfd) {
         SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
         printf("NUMERO FILE : %d\n",sizeList());
         printFile();
+
+    }else if (strcmp(token,"removeFile")==0) {
+        //removeFile,pathname
+
+        //ARGOMENTI
+        token = strtok(NULL,",");
+        char * path = token;
+
+        if (removeFile(path)==-1) {
+            sprintf(response,"-1,%d",ENOENT);
+        }else{
+            sprintf(response,"0");
+        }
+        SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
+        printf("NUMERO FILE : %d\n",sizeList());
+        printFile();
+
     } else {
         //ENOSYS
         sprintf(response,"-1,%d",ENOSYS);
@@ -478,6 +499,40 @@ char * getFile (char * path, int cfd) {
 
     return response; 
 
+}
+
+//ERRORE SSE IL FILE PATH NON ESISTE NEL SERVER
+int removeFile (char * path) {
+
+    int res=0;
+    int err;
+    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
+
+    file ** list = &cache_file;
+
+    int rimosso = 0;
+    file * curr = *list;
+    file * prec = NULL;
+    while (curr!=NULL && rimosso==0) {
+        if ((strcmp(path,curr->path) == 0)) {
+            rimosso=1;
+            if (prec==NULL) {
+                    *list = curr->next;
+            }else{
+                prec->next = curr->next;
+            }
+            free(curr);
+        }else{
+            prec = curr;
+            curr = curr->next;
+        }
+    }
+
+    if (rimosso==0) res=-1;
+
+    pthread_mutex_unlock(&lock_cache);
+
+    return res;
 }
 
 //RIMUOVE IL CLIENT CFD DALLA LISTA DEL FILE PATH DI CHI HA APERTO IL FILE 
