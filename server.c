@@ -28,7 +28,7 @@ typedef struct node {
 typedef struct file {
     char * path;
     char * data;
-    //node * client_open;
+    node * client_open;
     //info utili per ogni file
     struct file * next; 
 } file;
@@ -56,7 +56,8 @@ void removeFile (char * path, int cfd);
 void eseguiRichiesta (char * request, int cfd);
 int sizeList ();
 void printFile ();
-int containFile (char * path); //1 se lo contiene, 0 se non lo contiene 
+int containFile (char * path); //1 se lo contiene, 0 se non lo contiene
+void printClient (node * list); //STAMPA LISTA DI CLIENT (FILE DESCRIPTOR SOCKET)
 
 
 int main () {
@@ -64,7 +65,7 @@ int main () {
     int i;
 
     //parametri server da settare con il config.txt
-    int num_thread = 4;
+    int num_thread = 10;
     int max_file;
     int max_dim;
     char * socket_name = "/tmp/LSOfilestorage.sk";
@@ -236,8 +237,7 @@ void * worker (void * arg) {
     int cfd;
 
     while (1) {
-        char request[DIM_MSG];
-        char response[DIM_MSG];
+        char *request = malloc(DIM_MSG);
         //PRELEVA UN CLIENT DALLA CODA
         cfd = removeNode(&coda);
         if (cfd==-1) break;
@@ -256,9 +256,9 @@ void * worker (void * arg) {
             printf ("From Client : %s\n",request);
             fflush(stdout);
 
-            //TODO : ELABORA RICHIESTA CLIENT
-            printf("NUMERO FILE : %d",sizeList());
-            printFile();
+            //STAMPE DEBUG
+            //printf("NUMERO FILE : %d",sizeList());
+            //printFile();
             eseguiRichiesta(request,cfd);
             
             //RITORNA IL CLIENT AL MANAGER TRAMITE LA PIPE
@@ -358,7 +358,12 @@ int addFile (char * path, int flag, int cfd) {
 
     file ** list = &cache_file;
 
-    int trovato = containFile(path);
+    int trovato = 0;
+    file * curr = cache_file;
+    while (curr!=NULL && trovato==0) {
+        if ((strcmp(path,curr->path) == 0)) trovato=1;
+        else curr = curr->next;
+    }
 
     if (flag==1 && trovato==0) { //CREO IL FILE -- LO INSERISCO IN TESTA 
         printf("ADDFILE : CREO FILE\n");
@@ -366,14 +371,20 @@ int addFile (char * path, int flag, int cfd) {
         file * f = malloc(sizeof(file));
         f->path = path;
         f->data = NULL;
+        f->client_open = NULL;
+        node * new = malloc (sizeof(node));
+        new->data = cfd;
+        new->next = f->client_open;
+        f->client_open = new;
         f->next = *list;
         *list =  f;
-    }else if (flag==0 && trovato==1) { //APRO IL FILE PER CFD
+    }else if (flag==-1 && trovato==1) { //APRO IL FILE PER CFD
         printf("ADDFILE : APRO FILE\n");
-        //node * new = malloc (sizeof(node));
-        //new->data = cfd;
-        //new->next = curr->client_open;
-        //curr->client_open = new;
+        //TODO : INSERIRE SSE LA LISTA CLIENT_OPEN NON CONTINE GIA' IL CFD -- CONTROLLO DUPLICATI
+        node * new = malloc (sizeof(node));
+        new->data = cfd;
+        new->next = curr->client_open;
+        curr->client_open = new;
     }else {
         res=-1; //ERRORE
         printf("ADDFILE : ERRORE\n");
@@ -432,7 +443,7 @@ void eseguiRichiesta (char * request, int cfd) {
         char * path = token;
         token = strtok(NULL,",");
         int flag = atoi(token);
-        printFile();
+
         //ELABORA COMANDO
         if (addFile(path,flag,cfd) == -1) {
             sprintf(response,"-1,%d",EPERM);
@@ -464,7 +475,20 @@ void printFile () {
     fflush(stdout);
     file * curr = cache_file;
     while (curr!=NULL) {
-        printf("%s\n",curr->path); 
+        printf("%s ",curr->path);
+        printClient(curr->client_open);
+        printf("\n"); 
+        fflush(stdout);
+        curr = curr->next;
+    }
+}
+
+void printClient (node * list) {
+    node * curr = list;
+    printf("APERTO DA : ");
+    fflush(stdout);
+    while (curr!=NULL) {
+        printf("%d ",curr->data);
         fflush(stdout);
         curr = curr->next;
     }

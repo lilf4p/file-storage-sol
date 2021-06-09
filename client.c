@@ -82,22 +82,35 @@ int main (int argc, char * argv[]) {
                 warg=optarg;
                 printf("Opzione -w con argomento %s\n",warg);
                 //TODO : ESEGUI COMANDO CON API
+                char * save1 = NULL;
+                char * token1 = strtok_r(warg,",",&save1);
+                
+                while(token1) {
+                    char * file = token1;
+                    //per ogni file passato come argomento esegui open-write-close
+                    if (openFile(file,-1)==-1) {
+                        perror("openFile");
+                    }
+                    printf("TOKEN\n");
+                    token1 = strtok_r(NULL,",",&save1);
+
+                }
                 break;
 
             case 'W':
                 Warg=optarg;
                 printf("Opzione -W con argomento %s\n",Warg);
-                char * save1 = NULL;
-                char * token1 = strtok_r(Warg,",",&save1);
+                char * save2 = NULL;
+                char * token2 = strtok_r(Warg,",",&save2);
                 
-                while(token1) {
-                    char * file = token1;
+                while(token2) {
+                    char * file = token2;
                     //per ogni file passato come argomento esegui open-write-close
                     if (openFile(file,1)==-1) {
                         perror("openFile");
                     }
                     printf("TOKEN\n");
-                    token1 = strtok_r(NULL,",",&save1);
+                    token2 = strtok_r(NULL,",",&save2);
 
                 }
 
@@ -142,6 +155,7 @@ int main (int argc, char * argv[]) {
     }
     
     //FINITE LE OPZIONI DA LINEA DI COMANDO CHIUDO LA CONNESSIONE SE ERA APERTA
+    sleep(20);
     closeConnection(farg);
 
     return 0;
