@@ -87,15 +87,18 @@ int main (int argc, char * argv[]) {
             case 'W':
                 Warg=optarg;
                 printf("Opzione -W con argomento %s\n",Warg);
-                char * file;
-                file = strtok(Warg,",");
-                while(file != NULL) {
+                char * save1 = NULL;
+                char * token1 = strtok_r(Warg,",",&save1);
+                
+                while(token1) {
+                    char * file = token1;
                     //per ogni file passato come argomento esegui open-write-close
                     if (openFile(file,1)==-1) {
                         perror("openFile");
                     }
                     printf("TOKEN\n");
-                    file = strtok(NULL,",");
+                    token1 = strtok_r(NULL,",",&save1);
+
                 }
 
                 break;

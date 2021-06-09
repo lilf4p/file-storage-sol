@@ -90,14 +90,13 @@ int openFile(const char* pathname, int flags) {
 
     SYSCALL(read(sc,response,N),EREMOTEIO);
     printf("From Server : %s\n",response);
-    fflush(stdin);
 
-    char * token;
-    token = strtok(response,",");
+    char * t;
+    t = strtok(response,",");
 
-    if (strcmp(token,"-1")==0) { //ERRORE DAL SERVER
-        token = strtok(NULL,",");
-        errno = atoi(token);
+    if (strcmp(t,"-1")==0) { //ERRORE DAL SERVER
+        t = strtok(NULL,",");
+        errno = atoi(t);
         return -1;
     }else{ //SUCCESSO DAL SERVER 
         return 0;
