@@ -58,6 +58,7 @@ int sizeList ();
 void printFile ();
 int containFile (char * path); //1 se lo contiene, 0 se non lo contiene
 void printClient (node * list); //STAMPA LISTA DI CLIENT (FILE DESCRIPTOR SOCKET)
+int removeClient (char * path, int cfd);
 
 
 int main () {
@@ -65,7 +66,7 @@ int main () {
     int i;
 
     //parametri server da settare con il config.txt
-    int num_thread = 10;
+    int num_thread = 1;
     int max_file;
     int max_dim;
     char * socket_name = "/tmp/LSOfilestorage.sk";
@@ -276,7 +277,53 @@ void * worker (void * arg) {
 
 }
 
-//--------FUNZIONI DI UTILITY----------//
+//REQUEST CONTIENE : COMANDO,ARGOMENTI SEPARATI DA VIRGOLA
+void eseguiRichiesta (char * request, int cfd) {
+    char response[DIM_MSG];
+    char * token;
+    token = strtok(request,",");
+
+    if (strcmp(token,"openFile")==0) {
+        //openFile,pathname,flags
+
+        //ARGOMENTI 
+        token = strtok(NULL,",");
+        char * path = token;
+        token = strtok(NULL,",");
+        int flag = atoi(token);
+
+        //ELABORA COMANDO
+        if (addFile(path,flag,cfd) == -1) {
+            sprintf(response,"-1,%d",EPERM);
+        }else{
+            sprintf(response,"0");
+        }
+        SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
+        printf("NUMERO FILE : %d\n",sizeList());
+        printFile();
+    }else if (strcmp(token,"closeFile")==0) {
+        //closeFile,pathname
+
+        //ARGOMENTI
+        token = strtok(NULL,",");
+        char * path = token;
+
+        if (removeClient(path,cfd) == -1) {
+            sprintf(response,"-1,%d",EPERM);
+        }else{
+            sprintf(response,"0");
+        }
+        SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
+        printf("NUMERO FILE : %d\n",sizeList());
+        printFile();
+    } else {
+        //ENOSYS
+        sprintf(response,"-1,%d",ENOSYS);
+        SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
+    }    
+}
+
+//--------UTILITY PER GESTIONE SERVER----------//
 
 //INSERIMENTO IN TESTA
 void insertNode (node ** list, int data) {
@@ -348,6 +395,10 @@ static void gestore_term (int signum) {
     } 
 }
 
+//--------------------------------------------------//
+
+//-------------UTILITY PER GESTIONE CACHE FILE-------------//
+
 //INSERISCO IN TESTA --> I FILE INSERITI PRIMA (DA PIU' TEMPO IN CACHE) SARANNO IN FONDO 
 int addFile (char * path, int flag, int cfd) {
     
@@ -378,7 +429,7 @@ int addFile (char * path, int flag, int cfd) {
         f->client_open = new;
         f->next = *list;
         *list =  f;
-    }else if (flag==-1 && trovato==1) { //APRO IL FILE PER CFD
+    }else if (flag==0 && trovato==1) { //APRO IL FILE PER CFD
         printf("ADDFILE : APRO FILE\n");
         //TODO : INSERIRE SSE LA LISTA CLIENT_OPEN NON CONTINE GIA' IL CFD -- CONTROLLO DUPLICATI
         node * new = malloc (sizeof(node));
@@ -427,37 +478,48 @@ char * getFile (char * path, int cfd) {
 
     return response; 
 
-} 
+}
 
-//REQUEST CONTIENE : COMANDO,ARGOMENTI SEPARATI DA VIRGOLA
-void eseguiRichiesta (char * request, int cfd) {
-    char response[DIM_MSG];
-    char * token;
-    token = strtok(request,",");
+//RIMUOVE IL CLIENT CFD DALLA LISTA DEL FILE PATH DI CHI HA APERTO IL FILE 
+int removeClient (char * path, int cfd) {
+    int res=0;
+    int err;
+    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
 
-    if (strcmp(token,"openFile")==0) {
-        //openFile,pathname,flags
+    file ** list = &cache_file;
 
-        //ARGOMENTI 
-        token = strtok(NULL,",");
-        char * path = token;
-        token = strtok(NULL,",");
-        int flag = atoi(token);
+    int trovato = 0;
+    file * curr = cache_file;
+    while (curr!=NULL && trovato==0) {
+        if ((strcmp(path,curr->path) == 0)) trovato=1;
+        else curr = curr->next;
+    }
 
-        //ELABORA COMANDO
-        if (addFile(path,flag,cfd) == -1) {
-            sprintf(response,"-1,%d",EPERM);
-        }else{
-            sprintf(response,"0");
+    int rimosso=0;
+    if (trovato==1) {
+        node * tmp = curr->client_open;
+        node * prec = NULL;
+        while (tmp!=NULL && rimosso==0) {
+            if (tmp->data == cfd) {
+                rimosso=1;
+                if (prec==NULL) {
+                    curr->client_open = tmp->next;
+                }else{
+                    prec->next = tmp->next;
+                }
+                free(tmp);
+            }else{
+                prec = tmp;
+                tmp = tmp->next;
+            }
         }
-        SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
-        printf("NUMERO FILE : %d\n",sizeList());
-        printFile();
-    } else {
-        //ENOSYS
-        sprintf(response,"-1,%d",ENOSYS);
-        SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
-    }    
+    }
+    //TROVATO == 0 --> FILE NON ESISTE , RIMOSSO == 0 --> FILE NON APERTO DAL CLIENT
+    if (trovato == 0 || rimosso == 0) res=-1;
+
+    pthread_mutex_unlock(&lock_cache);
+
+    return res;
 }
 
 int sizeList () {

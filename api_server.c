@@ -83,6 +83,7 @@ int openFile(const char* pathname, int flags) {
         errno=ENOTCONN;
         return -1;
     }
+
     char buffer[N];
     sprintf(buffer, "openFile,%s,%d",pathname,flags);
 
@@ -105,6 +106,63 @@ int openFile(const char* pathname, int flags) {
     return 0;
 
 }
+
+int writeFile(const char* pathname, const char* dirname) {
+
+    if (connesso==0) {
+        errno=ENOTCONN;
+        return -1;
+    }
+
+    char buffer[N];
+    sprintf(buffer, "writeFile,%s,%s",pathname,dirname);
+
+    SYSCALL(read(sc,response,N),EREMOTEIO);
+    printf("From Server : %s\n",response);
+
+    char * t;
+    t = strtok(response,",");
+
+    if (strcmp(t,"-1")==0) { //ERRORE DAL SERVER
+        t = strtok(NULL,",");
+        errno = atoi(t);
+        return -1;
+    }else{ //SUCCESSO DAL SERVER 
+        return 0;
+    }
+
+
+}
+
+int closeFile(const char* pathname) {
+
+    if (connesso==0) {
+        errno=ENOTCONN;
+        return -1;
+    }
+
+    char buffer[N];
+    sprintf(buffer, "closeFile,%s",pathname);
+
+    SYSCALL(write(sc,buffer,N),EREMOTEIO);
+
+    SYSCALL(read(sc,response,N),EREMOTEIO);
+    printf("From Server : %s\n",response);
+
+    char * t;
+    t = strtok(response,",");
+
+    if (strcmp(t,"-1")==0) { //ERRORE DAL SERVER
+        t = strtok(NULL,",");
+        errno = atoi(t);
+        return -1;
+    }else{ //SUCCESSO DAL SERVER 
+        return 0;
+    }
+
+}
+
+
 
 //-------------FUNZIONI DI UTILITY--------------//
 

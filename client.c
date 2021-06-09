@@ -79,6 +79,7 @@ int main (int argc, char * argv[]) {
                 break;
 
             case 'w':
+                //TEST OPENFILE CON FLAG == 0
                 warg=optarg;
                 printf("Opzione -w con argomento %s\n",warg);
                 //TODO : ESEGUI COMANDO CON API
@@ -88,7 +89,7 @@ int main (int argc, char * argv[]) {
                 while(token1) {
                     char * file = token1;
                     //per ogni file passato come argomento esegui open-write-close
-                    if (openFile(file,-1)==-1) {
+                    if (openFile(file,0)==-1) {
                         perror("openFile");
                     }
                     printf("TOKEN\n");
@@ -139,6 +140,19 @@ int main (int argc, char * argv[]) {
             case 'c': 
                 carg=optarg;
                 printf("Opzione -c con argomento %s\n",carg);
+                char * save3 = NULL;
+                char * token3 = strtok_r(carg,",",&save3);
+                
+                while(token3) {
+                    char * file = token3;
+                    //per ogni file passato come argomento esegui open-write-close
+                    if (closeFile(file)==-1) {
+                        perror("closeFile");
+                    }
+                    //printf("TOKEN\n");
+                    token3 = strtok_r(NULL,",",&save3);
+
+                }
                 break;
 
             case '?':
@@ -155,7 +169,7 @@ int main (int argc, char * argv[]) {
     }
     
     //FINITE LE OPZIONI DA LINEA DI COMANDO CHIUDO LA CONNESSIONE SE ERA APERTA
-    sleep(20);
+    //sleep(20);
     closeConnection(farg);
 
     return 0;
