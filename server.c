@@ -350,14 +350,17 @@ void eseguiRichiesta (char * request, int cfd) {
         int ok = 1;
 
         //INVIA AL CLIENT PERMESSO PER INVIARE FILE O ERRORE
-        if (ok) {
+        if (ok==1) {
             sprintf(response,"0");
 
             SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
 
+            
             //RICEVO DAL CLIENT SIZE FILE 
-            char buf1[DIM_MSG];
+            char * buf1 = malloc(DIM_MSG*sizeof(char));
             SYSCALL(read(cfd,buf1,sizeof(buf1)),"THREAD : socket read2");
+            printf("FROM CLIENT SIZE : %s\n",buf1);
+            fflush(stdout);
             int size_file = atoi(buf1);
 
             //E IL FILE
@@ -366,18 +369,20 @@ void eseguiRichiesta (char * request, int cfd) {
                 fprintf(stderr,"malloc fail\n");
                 exit(EXIT_FAILURE);
             }
-            SYSCALL(read(cfd,buf2,sizeof(buf2)),"THREAD : socket read3");
-
+            SYSCALL(read(cfd,buf2,(size_file+1)),"THREAD : socket read3");
+            printf("FROM CLIENT FILE : %s\n",buf2);
+            fflush(stdout);
             //INSERISCO I DATI NELLA CACHE 
             insertData(path, buf2);
 
-
+            
         }else{
 
             sprintf(response,"-1,%d",EPERM);
             SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
 
         }
+        
 
     } else {
         //ENOSYS
@@ -638,6 +643,7 @@ int insertData(char * path, char * data) {
     while (curr!=NULL && trovato==0) {
         if ((strcmp(path,curr->path) == 0)) {
             trovato=1;
+            curr->data = malloc(sizeof(data));
             curr->data = data;
         } else curr = curr->next;
     }
@@ -665,9 +671,11 @@ void printFile () {
     file * curr = cache_file;
     while (curr!=NULL) {
         printf("%s ",curr->path);
+        printf("WRITE:%d ",curr->client_write);
         printClient(curr->client_open);
-        printf("\n"); 
-        fflush(stdout);
+        printf("\n");
+        printf("CONTENUTO : size=%ld %s\n",sizeof(curr->data),curr->data); 
+        
         curr = curr->next;
     }
 }

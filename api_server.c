@@ -86,7 +86,7 @@ int openFile(const char* pathname, int flags) {
         return -1;
     }
 
-    char buffer[N];
+    char * buffer = malloc(N*sizeof(char));
     sprintf(buffer, "openFile,%s,%d",pathname,flags);
 
     SYSCALL(write(sc,buffer,N),EREMOTEIO);
@@ -104,8 +104,6 @@ int openFile(const char* pathname, int flags) {
     }else{ //SUCCESSO DAL SERVER 
         return 0;
     }
-    
-    return 0;
 
 }
 
@@ -116,24 +114,8 @@ int writeFile(const char* pathname, const char* dirname) {
         return -1;
     }
 
-    FILE *fp;
-    int size_file;
-    if ((fp = fopen(pathname,"r")) == NULL) {
-        errno = EREMOTEIO;
-        return -1;
-    }
-    struct stat st;
-    stat(pathname,&st);
-    size_file = st.st_size;
-    char * file_buffer = malloc((size_file+1)*sizeof(char));
-    if (file_buffer==NULL) {
-        errno = ENOMEM;
-        return -1;
-    }
-
-    //PRIMA INVIO IL PATHNAME AL SERVER PER CONTROLLARE DI POTER SCRIVERE IL FILE
-    char buffer[N];
-    sprintf(buffer,"writeFile,%s",pathname);
+    char * buffer = malloc(N*sizeof(char));
+    sprintf(buffer, "writeFile,%s",pathname);
 
     SYSCALL(write(sc,buffer,N),EREMOTEIO);
 
@@ -147,44 +129,49 @@ int writeFile(const char* pathname, const char* dirname) {
         t = strtok(NULL,",");
         errno = atoi(t);
         return -1;
+    }else{ //SUCCESSO DAL SERVER 
+        //return 0;
     }
 
-    //POSSO SCRIVERE IL FILE SUL SERVER 
+    //POSSO INVIARE IL FILE 
+
+    int fd;
+    int size_file;
+    if ((fd = open(pathname,O_RDONLY)) == -1) {
+        errno = ENOENT;
+        return -1;
+    }
+    struct stat st;
+    fstat(fd,&st);
+    size_file = st.st_size;
+    char * file_buffer = malloc((size_file+1)*sizeof(char));
+    if (file_buffer==NULL) {
+        errno = ENOMEM;
+        return -1;
+    }
 
     //LEGGO IL FILE E LO SCRIVO NEL BUFFER DA INVIARE 
-    size_t newLen = fread(file_buffer,sizeof(char),size_file,fp);
-    if (ferror(fp) != 0) {
+    int newLen = read(fd,file_buffer,size_file);
+    if (newLen==-1) {
         errno = EREMOTEIO;
         return -1;
     }else{
         file_buffer[newLen++] = '\0';
     }
-    fclose(fp);
+    close(fd);
 
     //INVIO SIZE FILE
-    SYSCALL(write(sc,&size_file,sizeof(size_file)),EREMOTEIO);
+    char *tmp = malloc(N*sizeof(char));
+    sprintf(tmp,"%d",size_file);
+    SYSCALL(write(sc,tmp,sizeof(tmp)),EREMOTEIO);
 
     //INVIO FILE
-    SYSCALL(write(sc,file_buffer,size_file),EREMOTEIO);
-
-    //SEVER RISPONDE 0 SE OK -1,ERRNO SE ERRORE
-    char response2[N];
-    SYSCALL(read(sc,response2,N),EREMOTEIO);
-    printf("From Server : %s\n",response2);
-
-    char * t1;
-    t1 = strtok(response2,",");
-
-    if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
-        t1 = strtok(NULL,",");
-        errno = atoi(t1);
-        return -1;
-    }else{ //SUCCESSO DAL SERVER 
-        return 0;
-    }
+    SYSCALL(write(sc,file_buffer,size_file+1),EREMOTEIO);
 
     free(file_buffer);
 
+    return 0;
+    
 }
 
 int closeFile(const char* pathname) {
@@ -194,7 +181,7 @@ int closeFile(const char* pathname) {
         return -1;
     }
 
-    char buffer[N];
+    char * buffer = malloc(N*sizeof(char));
     sprintf(buffer, "closeFile,%s",pathname);
 
     SYSCALL(write(sc,buffer,N),EREMOTEIO);
@@ -222,7 +209,7 @@ int removeFile(const char* pathname) {
         return -1;
     }
 
-    char buffer[N];
+    char * buffer = malloc(N*sizeof(char));
     sprintf(buffer, "removeFile,%s",pathname);
 
     SYSCALL(write(sc,buffer,N),EREMOTEIO);
