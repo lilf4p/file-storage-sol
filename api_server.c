@@ -154,6 +154,7 @@ int writeFile(const char* pathname, const char* dirname) {
     int newLen = read(fd,file_buffer,size_file);
     if (newLen==-1) {
         errno = EREMOTEIO;
+        free(file_buffer);
         return -1;
     }else{
         file_buffer[newLen++] = '\0';
@@ -168,9 +169,23 @@ int writeFile(const char* pathname, const char* dirname) {
     //INVIO FILE
     SYSCALL(write(sc,file_buffer,size_file+1),EREMOTEIO);
 
-    free(file_buffer);
+    //RISPOSTA SERVER 
+    char * result = malloc(N*sizeof(char));
+    SYSCALL(read(sc,result,N),EREMOTEIO);
+    printf("From Server : %s\n",response);
 
-    return 0;
+    char * t1;
+    t1 = strtok(result,",");
+
+    if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
+        t1 = strtok(NULL,",");
+        errno = atoi(t1);
+        free(file_buffer);
+        return -1;
+    }else{ //SUCCESSO DAL SERVER 
+        free(file_buffer);
+        return 0;
+    }
     
 }
 
@@ -225,6 +240,60 @@ int removeFile(const char* pathname) {
         errno = atoi(t);
         return -1;
     }else{ //SUCCESSO DAL SERVER 
+        return 0;
+    }
+
+}
+
+int appendToFile(const char* pathname, void* buf,size_t size, const char* dirname) {
+
+    if (connesso==0) {
+        errno=ENOTCONN;
+        return -1;
+    }
+
+    char * buffer = malloc(N*sizeof(char));
+    sprintf(buffer, "appendToFile,%s",pathname);
+
+    SYSCALL(write(sc,buffer,N),EREMOTEIO);
+
+    SYSCALL(read(sc,response,N),EREMOTEIO);
+    printf("From Server : %s\n",response);
+
+    char * t;
+    t = strtok(response,",");
+
+    if (strcmp(t,"-1")==0) { //ERRORE DAL SERVER
+        t = strtok(NULL,",");
+        errno = atoi(t);
+        return -1;
+    }else{ //SUCCESSO DAL SERVER 
+        //return 0;
+    }
+
+    //INVIO SIZE FILE
+    char *tmp = malloc(N*sizeof(char));
+    sprintf(tmp,"%ld",size);
+    SYSCALL(write(sc,tmp,sizeof(tmp)),EREMOTEIO);
+
+    //INVIO FILE
+    SYSCALL(write(sc,buf,size+1),EREMOTEIO);
+
+    //RISPOSTA SERVER 
+    char * result = malloc(N*sizeof(char));
+    SYSCALL(read(sc,result,N),EREMOTEIO);
+    printf("From Server : %s\n",response);
+
+    char * t1;
+    t1 = strtok(result,",");
+
+    if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
+        t1 = strtok(NULL,",");
+        errno = atoi(t1);
+        //free(buf);
+        return -1;
+    }else{ //SUCCESSO DAL SERVER 
+        //free(buf);
         return 0;
     }
 

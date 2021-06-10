@@ -92,6 +92,10 @@ int main (int argc, char * argv[]) {
                     if (openFile(file,0)==-1) {
                         perror("openFile");
                     }
+                    
+                    if (appendToFile(file,"prova",6,NULL)==-1) {
+                        perror("appendToFile");
+                    }
 
                     if (closeFile(file)==-1) {
                         perror("closeFile");
