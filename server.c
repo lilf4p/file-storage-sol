@@ -375,7 +375,7 @@ void eseguiRichiesta (char * request, int cfd) {
         }
         SYSCALL(write(cfd,result,sizeof(response)),"THREAD : socket write");
 
-    } else if (strcmp(token,"appendToFile")) {
+    } else if (strcmp(token,"appendToFile")==0) {
         //appendToFile,pathname,buf,size
 
         //ARGOMENTI
