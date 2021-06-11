@@ -299,6 +299,58 @@ int appendToFile(const char* pathname, void* buf,size_t size, const char* dirnam
 
 }
 
+int readFile(const char* pathname, void** buf, size_t* size) {
+
+     if (connesso==0) {
+        errno=ENOTCONN;
+        return -1;
+    }
+
+    char * buffer = malloc(N*sizeof(char));
+    sprintf(buffer, "readFile,%s",pathname);
+
+    SYSCALL(write(sc,buffer,N),EREMOTEIO);
+
+    //RICEVO SIZE FILE
+    SYSCALL(read(sc,response,N),EREMOTEIO);
+    printf("From Server : %s\n",response);
+    
+    char * t;
+    t = strtok(response,",");
+    int size_file;
+    if (strcmp(t,"-1")==0) { //ERRORE DAL SERVER
+        t = strtok(NULL,",");
+        errno = atoi(t);
+        return -1;
+    }else{ //SIZE FILE 
+        size_file = atoi(t);
+    }
+    *size = size_file;
+    char *file = malloc (size_file*sizeof(char));
+    if (file == NULL) {
+        errno=ENOTRECOVERABLE;
+        return -1;
+    }
+
+    //INVIO CONFERMA AL SERVER 
+    char * buf1 = malloc(N*sizeof(char));
+    if (buf1!=NULL) {
+        buf1="0";
+        SYSCALL(write(sc,buf1,sizeof(buf1)),EREMOTEIO);
+    }//invia errore
+
+    //RICEVO FILE 
+    SYSCALL(read(sc,file,size_file),EREMOTEIO);
+    *buf = malloc(size_file*sizeof(char));
+    *buf = file;
+
+    printf("From Server : %s\n",file);
+    
+    return 0;
+
+}
+
+
 
 
 //-------------FUNZIONI DI UTILITY--------------//

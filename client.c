@@ -138,6 +138,38 @@ int main (int argc, char * argv[]) {
             case 'r':
                 rarg=optarg;
                 printf("Opzione -r con argomento %s\n",rarg);
+
+                char * save3 = NULL;
+                char * token3 = strtok_r(rarg,",",&save3);
+                
+                while(token3) {
+                    char * file = token3;
+                    //per ogni file passato come argomento esegui open-write-close
+
+                    if (openFile(file,0)==-1) {
+                        perror("openFile");
+                        break;
+                    }
+
+                    //WRITE FILE
+                    char * buf;
+                    size_t size;
+                    if (readFile(file,(void**)&buf,&size)==-1) {
+                        perror("writeFile");
+                        break;
+                    }
+                    printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
+
+                    if (closeFile(file)==-1) {
+                        perror("closeFile");
+                        break;
+                    }
+
+                    token3 = strtok_r(NULL,",",&save3);
+
+                }
+
+
                 break;
 
             case 'R':
@@ -158,17 +190,17 @@ int main (int argc, char * argv[]) {
             case 'c': 
                 carg=optarg;
                 printf("Opzione -c con argomento %s\n",carg);
-                char * save3 = NULL;
-                char * token3 = strtok_r(carg,",",&save3);
+                char * save4 = NULL;
+                char * token4 = strtok_r(carg,",",&save4);
                 
-                while(token3) {
+                while(token4) {
                     char * file = token3;
                     //per ogni file passato come argomento esegui open-write-close
                     if (removeFile(file)==-1) {
                         perror("removeFile");
                     }
                     //printf("TOKEN\n");
-                    token3 = strtok_r(NULL,",",&save3);
+                    token4 = strtok_r(NULL,",",&save4);
 
                 }
                 break;

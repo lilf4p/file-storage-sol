@@ -405,10 +405,44 @@ void eseguiRichiesta (char * request, int cfd) {
         fflush(stdout);
 
         //TODO: AGGIUNGO I DATI AL FILE IN CACHE
-        appendData(path,buf2,cfd); 
+        char * result = malloc(DIM_MSG*sizeof(char));
+        if (appendData(path,buf2,cfd)==-1) {
+            sprintf(result,"-1,%d",EPERM);
+        }else{
+            sprintf(result,"0");
+        }
+        SYSCALL(write(cfd,result,sizeof(response)),"THREAD : socket write");
 
-        //INVIO RISULTATO AL CLIENT
-        SYSCALL(write(cfd,"0",2),"THREAD : socket write");
+    } else if (strcmp(token,"readFile")==0) {
+        //readFile,path
+
+        //ARGOMENTI
+        token = strtok(NULL,",");
+        char * path = token;
+
+        char * fb = getFile(path,cfd);
+        printf("%s\n",fb);
+        fflush(stdout);
+
+        char * buf = malloc(DIM_MSG*sizeof(char));
+        if (fb==NULL) {
+            //INVIO ERRORE
+            sprintf(buf,"-1,%d",EPERM);
+            SYSCALL(write(cfd,buf,sizeof(buf)),"THREAD : socket write");
+        }else{
+            //INVIO SIZE FILE
+            sprintf(buf,"%ld",strlen(fb));
+            SYSCALL(write(cfd,buf,sizeof(buf)),"THREAD : socket write");
+
+            char * buf1 = malloc(DIM_MSG*sizeof(char));
+            SYSCALL(read(cfd,buf1,sizeof(buf1)),"THREAD :  socket read");
+            printf("FROM CLIENT : %s",buf1);
+            fflush(stdout);
+            if (strcmp(buf1,"0")==0) {
+                //INVIO FILE 
+                SYSCALL(write(cfd,fb,strlen(fb)),"THREAD : socket write");
+            }
+        }
 
     } else {
         //ENOSYS
@@ -736,7 +770,11 @@ void printFile () {
         printf("WRITE:%d ",curr->client_write);
         printClient(curr->client_open);
         printf("\n");
-        printf("CONTENUTO : size=%ld %s\n",sizeof(curr->data),curr->data); 
+        if (curr->data!=NULL) {
+            printf("CONTENUTO : size=%ld %s\n",strlen(curr->data),curr->data);
+        } else {
+            printf("CONTENUTO : size=0 \n");
+        }
         
         curr = curr->next;
     }
