@@ -93,7 +93,7 @@ int main (int argc, char * argv[]) {
                         perror("openFile");
                     }
                     
-                    if (appendToFile(file,"prova",6,NULL)==-1) {
+                    if (appendToFile(file,"ho aggiunto contenuto a un file\0",32,NULL)==-1) {
                         perror("appendToFile");
                     }
 

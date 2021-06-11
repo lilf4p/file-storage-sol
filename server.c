@@ -59,12 +59,13 @@ int addFile (char * path, int flags, int cfd);
 char * getFile (char * path, int cfd);
 int removeFile (char * path);
 int removeClient (char * path, int cfd);
-int writeData(char * path, char * data, int cfd);
+int writeData(char * path, char * data, int cfd);//SCRIVE I DATI NEL FILE SSE CLIENT_WRITE == CFD
 int sizeList ();
 void printFile ();
 int containFile (char * path); //1 se lo contiene, 0 se non lo contiene
 void printClient (node * list); //STAMPA LISTA DI CLIENT (FILE DESCRIPTOR SOCKET)
 int fileOpen(node * list, int cfd);
+int appendData (char * path, char * data, int cfd);//SCRIVE I DATI NEL FILE SSE CLIENT_OPEN CONTIENE CFD
 
 int main () {
 
@@ -403,7 +404,8 @@ void eseguiRichiesta (char * request, int cfd) {
         printf("FROM CLIENT FILE : %s\n",buf2);
         fflush(stdout);
 
-        //TODO: AGGIUNGO I DATI AL FILE IN CACHE 
+        //TODO: AGGIUNGO I DATI AL FILE IN CACHE
+        appendData(path,buf2,cfd); 
 
         //INVIO RISULTATO AL CLIENT
         SYSCALL(write(cfd,"0",2),"THREAD : socket write");
@@ -665,7 +667,7 @@ int writeData(char * path, char * data, int cfd) {
     while (curr!=NULL && trovato==0) {
         if ((strcmp(path,curr->path) == 0)) {
             trovato=1;
-            //CONTROLLA DI AVER APERTO IL FILE
+            //CONTROLLA CHE LA PRECEDENTE OPERAZIONE DEL CLIENT SIA STATA UNA OPEN CREATE SUL FILE 
             if (curr->client_write == cfd) {
                 curr->data = malloc(sizeof(data));
                 curr->data = data;
@@ -676,6 +678,39 @@ int writeData(char * path, char * data, int cfd) {
     }
 
     if (trovato==0 || scritto==0) res=-1;
+
+    pthread_mutex_unlock(&lock_cache);
+
+    return res;
+}
+
+int appendData (char * path, char * data, int cfd) {
+    int res=0;
+    int err;
+    SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
+
+    file ** list = &cache_file;
+
+    int trovato = 0;
+    int scritto = 0;
+    file * curr = cache_file;
+    while (curr!=NULL && trovato==0) {
+        if ((strcmp(path,curr->path) == 0)) {
+            trovato=1;
+            //CONTROLLA DI AVER APERTO IL FILE 
+            if (fileOpen(curr->client_open,cfd)==1) {
+                char * tmp = realloc(curr->data,(strlen(curr->data)+strlen(data)+1)*sizeof(char));
+                if (tmp != NULL) {
+                    strcat(tmp,data);
+                    scritto = 1;
+                    curr->data = tmp;
+                    if (curr->client_write == cfd) curr->client_write = -1;
+                } 
+            }
+        } else curr = curr->next;
+    }
+
+    if (trovato==0 || scritto == 0) res=-1;
 
     pthread_mutex_unlock(&lock_cache);
 

@@ -114,6 +114,13 @@ int writeFile(const char* pathname, const char* dirname) {
         return -1;
     }
 
+    int fd;
+    int size_file;
+    if ((fd = open(pathname,O_RDONLY)) == -1) {
+        errno = ENOENT;
+        return -1;
+    }
+
     char * buffer = malloc(N*sizeof(char));
     sprintf(buffer, "writeFile,%s",pathname);
 
@@ -134,13 +141,6 @@ int writeFile(const char* pathname, const char* dirname) {
     }
 
     //POSSO INVIARE IL FILE 
-
-    int fd;
-    int size_file;
-    if ((fd = open(pathname,O_RDONLY)) == -1) {
-        errno = ENOENT;
-        return -1;
-    }
     struct stat st;
     fstat(fd,&st);
     size_file = st.st_size;
