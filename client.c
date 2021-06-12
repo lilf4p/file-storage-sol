@@ -175,6 +175,13 @@ int main (int argc, char * argv[]) {
             case 'R':
                 Rarg=optarg;
                 printf("Opzione -R con argomento %s\n",Rarg);
+                int n;
+                if ((n=readNFiles(atoi(optarg),NULL))==-1) {
+                    perror("readNFiles");
+                }else{
+                    printf("FILE LETTI : %d\n",n);
+                }
+
                 break;
 
             case 'd':

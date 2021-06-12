@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#define N 100
+#define DIM_MSG 100
 #define UNIX_PATH_MAX 108 /* man 7 unix */ 
 // utility macro
 #define SYSCALL(c,e) \
@@ -21,7 +21,7 @@
 int connesso = 0;//FLAG PER SAPERE SE MI SONO CONNESSO O NO 
 int sc; //SOCKET FD
 char *socket_name;
-char response[N];
+char response[DIM_MSG];
 
 //FUNZIONI DI UTILITA'
 int msleep(long tms);
@@ -50,7 +50,7 @@ int openConnection(const char* sockname, int msec,const struct timespec abstime)
         return -1;
     }
 
-    SYSCALL(read(sc,response,N),EREMOTEIO);
+    SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
     printf("%s\n",response);
     fflush(stdin);
     connesso = 1;
@@ -86,12 +86,12 @@ int openFile(const char* pathname, int flags) {
         return -1;
     }
 
-    char * buffer = malloc(N*sizeof(char));
+    char * buffer = malloc(DIM_MSG*sizeof(char));
     sprintf(buffer, "openFile,%s,%d",pathname,flags);
 
-    SYSCALL(write(sc,buffer,N),EREMOTEIO);
+    SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
-    SYSCALL(read(sc,response,N),EREMOTEIO);
+    SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
     printf("From Server : %s\n",response);
 
     char * t;
@@ -121,12 +121,12 @@ int writeFile(const char* pathname, const char* dirname) {
         return -1;
     }
 
-    char * buffer = malloc(N*sizeof(char));
+    char * buffer = malloc(DIM_MSG*sizeof(char));
     sprintf(buffer, "writeFile,%s",pathname);
 
-    SYSCALL(write(sc,buffer,N),EREMOTEIO);
+    SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
-    SYSCALL(read(sc,response,N),EREMOTEIO);
+    SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
     printf("From Server : %s\n",response);
 
     char * t;
@@ -162,7 +162,7 @@ int writeFile(const char* pathname, const char* dirname) {
     close(fd);
 
     //INVIO SIZE FILE
-    char *tmp = malloc(N*sizeof(char));
+    char *tmp = malloc(DIM_MSG*sizeof(char));
     sprintf(tmp,"%d",size_file);
     SYSCALL(write(sc,tmp,sizeof(tmp)),EREMOTEIO);
 
@@ -170,8 +170,8 @@ int writeFile(const char* pathname, const char* dirname) {
     SYSCALL(write(sc,file_buffer,size_file+1),EREMOTEIO);
 
     //RISPOSTA SERVER 
-    char * result = malloc(N*sizeof(char));
-    SYSCALL(read(sc,result,N),EREMOTEIO);
+    char * result = malloc(DIM_MSG*sizeof(char));
+    SYSCALL(read(sc,result,DIM_MSG),EREMOTEIO);
     printf("From Server : %s\n",response);
 
     char * t1;
@@ -196,12 +196,12 @@ int closeFile(const char* pathname) {
         return -1;
     }
 
-    char * buffer = malloc(N*sizeof(char));
+    char * buffer = malloc(DIM_MSG*sizeof(char));
     sprintf(buffer, "closeFile,%s",pathname);
 
-    SYSCALL(write(sc,buffer,N),EREMOTEIO);
+    SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
-    SYSCALL(read(sc,response,N),EREMOTEIO);
+    SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
     printf("From Server : %s\n",response);
 
     char * t;
@@ -224,12 +224,12 @@ int removeFile(const char* pathname) {
         return -1;
     }
 
-    char * buffer = malloc(N*sizeof(char));
+    char * buffer = malloc(DIM_MSG*sizeof(char));
     sprintf(buffer, "removeFile,%s",pathname);
 
-    SYSCALL(write(sc,buffer,N),EREMOTEIO);
+    SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
-    SYSCALL(read(sc,response,N),EREMOTEIO);
+    SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
     printf("From Server : %s\n",response);
 
     char * t;
@@ -252,12 +252,12 @@ int appendToFile(const char* pathname, void* buf,size_t size, const char* dirnam
         return -1;
     }
 
-    char * buffer = malloc(N*sizeof(char));
+    char * buffer = malloc(DIM_MSG*sizeof(char));
     sprintf(buffer, "appendToFile,%s",pathname);
 
-    SYSCALL(write(sc,buffer,N),EREMOTEIO);
+    SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
-    SYSCALL(read(sc,response,N),EREMOTEIO);
+    SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
     printf("From Server : %s\n",response);
 
     char * t;
@@ -272,7 +272,7 @@ int appendToFile(const char* pathname, void* buf,size_t size, const char* dirnam
     }
 
     //INVIO SIZE FILE
-    char *tmp = malloc(N*sizeof(char));
+    char *tmp = malloc(DIM_MSG*sizeof(char));
     sprintf(tmp,"%ld",size);
     SYSCALL(write(sc,tmp,sizeof(tmp)),EREMOTEIO);
 
@@ -280,8 +280,8 @@ int appendToFile(const char* pathname, void* buf,size_t size, const char* dirnam
     SYSCALL(write(sc,buf,size+1),EREMOTEIO);
 
     //RISPOSTA SERVER 
-    char * result = malloc(N*sizeof(char));
-    SYSCALL(read(sc,result,N),EREMOTEIO);
+    char * result = malloc(DIM_MSG*sizeof(char));
+    SYSCALL(read(sc,result,DIM_MSG),EREMOTEIO);
     printf("From Server : %s\n",response);
 
     char * t1;
@@ -301,18 +301,18 @@ int appendToFile(const char* pathname, void* buf,size_t size, const char* dirnam
 
 int readFile(const char* pathname, void** buf, size_t* size) {
 
-     if (connesso==0) {
+    if (connesso==0) {
         errno=ENOTCONN;
         return -1;
     }
 
-    char * buffer = malloc(N*sizeof(char));
+    char * buffer = malloc(DIM_MSG*sizeof(char));
     sprintf(buffer, "readFile,%s",pathname);
 
-    SYSCALL(write(sc,buffer,N),EREMOTEIO);
+    SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
     //RICEVO SIZE FILE
-    SYSCALL(read(sc,response,N),EREMOTEIO);
+    SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
     printf("From Server : %s\n",response);
     
     char * t;
@@ -333,7 +333,7 @@ int readFile(const char* pathname, void** buf, size_t* size) {
     }
 
     //INVIO CONFERMA AL SERVER 
-    char * buf1 = malloc(N*sizeof(char));
+    char * buf1 = malloc(DIM_MSG*sizeof(char));
     if (buf1!=NULL) {
         buf1="0";
         SYSCALL(write(sc,buf1,sizeof(buf1)),EREMOTEIO);
@@ -349,6 +349,70 @@ int readFile(const char* pathname, void** buf, size_t* size) {
     return 0;
 
 }
+
+int readNFiles(int N, const char* dirname) {
+
+    if (connesso==0) {
+        errno=ENOTCONN;
+        return -1;
+    }
+
+    char * buffer = malloc(DIM_MSG*sizeof(char));
+    sprintf(buffer, "readNFiles,%d",N);
+
+    SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
+
+    SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
+    printf("From Server : %s\n",response);
+
+    char * t;
+    t = strtok(response,",");
+    if (strcmp(t,"-1")==0) { //ERRORE DAL SERVER
+        t = strtok(NULL,",");
+        errno = atoi(t);
+        return -1;
+    }
+    int size_file = atoi(t);
+    int nf=0;
+
+    while (size_file!=-2) { //SIZE_FILE == -2 --> FINITI I FILE 
+
+        char * file_buf = malloc(size_file*sizeof(char));
+
+        //RICEVI FILE 
+        SYSCALL(read(sc,file_buf,size_file),EREMOTEIO);
+        nf++;
+
+        if(dirname!=NULL) {
+            //SALVA NELLA DIRECTORY DEL CLIENT 
+        }
+
+        printf("FILE : %s\n",file_buf);
+
+        SYSCALL(write(sc,"0",2),EREMOTEIO);
+
+        //RICEVI PPROSSIMA SIZE
+        char * buf = malloc(DIM_MSG*sizeof(char));
+        SYSCALL(read(sc,buf,DIM_MSG),EREMOTEIO);
+        printf("From Server : %s\n",buf);
+
+        char * t1;
+        t1 = strtok(buf,",");
+        if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
+            t1 = strtok(NULL,",");
+            errno = atoi(t1);
+            return -1;
+        }else if (strcmp(t1,"-2")==0) break;
+
+        int size_file = atoi(t1);
+        printf("size file: %d\n",size_file);
+
+    }
+
+    return nf;
+
+}
+
 
 
 

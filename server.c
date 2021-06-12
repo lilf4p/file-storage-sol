@@ -45,6 +45,7 @@ pthread_mutex_t lock_coda = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t not_empty = PTHREAD_COND_INITIALIZER;
 
 volatile sig_atomic_t term = 0; //FLAG SETTATO DAL GESTORE DEI SEGNALI DI TERMINAZIONE
+int num_file=0;
 
 void * worker (void * arg);
 
@@ -443,6 +444,37 @@ void eseguiRichiesta (char * request, int cfd) {
                 SYSCALL(write(cfd,fb,strlen(fb)),"THREAD : socket write");
             }
         }
+
+    } else if (strcmp(token,"readNFiles")==0) {
+        //readNFiles,N
+        int e;
+        //ARGOMENTI
+        token = strtok(NULL,",");
+        int n = atoi(token);
+        int i=0;
+
+        SYSCALL_PTHREAD(e,pthread_mutex_lock(&lock_cache),"LOCK IN READNFILES");
+        if (n<=0) n=num_file;
+        file * curr = cache_file;
+        while (i<n && curr!=NULL) {
+            
+            //INVIA AL CLIENT SIZE FILE
+            char * buf = malloc(DIM_MSG*sizeof(char));
+            sprintf(buf,"%ld",strlen(curr->data));
+            SYSCALL(write(cfd,buf,DIM_MSG),"THREAD : socket write");
+
+            //INVIA FILE
+            SYSCALL(write(cfd,curr->data,strlen(curr->data)),"THREAD : socket write");
+
+            curr = curr->next;
+            i++;
+            char * buf1 = malloc(DIM_MSG*sizeof(char));
+            SYSCALL(read(cfd,buf1,DIM_MSG),"THREAD : socket read");
+
+        }
+        pthread_mutex_unlock(&lock_cache);
+        //FILE FINITI INVIA SIZE==-2
+        SYSCALL(write(cfd,"-2",3),"THREAD : socket write");
 
     } else {
         //ENOSYS
