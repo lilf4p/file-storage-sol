@@ -59,7 +59,7 @@ int removeNode (node ** list);
 int updatemax(fd_set set, int fdmax);
 static void gestore_term (int signum);
 
-void eseguiRichiesta (char * request, int cfd);
+void eseguiRichiesta (char * request, int cfd,int pfd);
 
 int addFile (char * path, int flags, int cfd);
 char * getFile (char * path, int cfd);
@@ -81,8 +81,8 @@ int main () {
 
     //parametri server da settare con il config.txt
     int num_thread = 5;
-    max_files = 2; //CONTROLLARE QUANDO AGGIUNGO FILE CON SUCCESSO 
-    max_dim = 999999999;  //CONTROLLARE QUANDO SCRIVO DATI 
+    max_files = 5; //CONTROLLARE QUANDO AGGIUNGO FILE CON SUCCESSO 
+    max_dim = 200;  //CONTROLLARE QUANDO SCRIVO DATI 
     char * socket_name = "/tmp/LSOfilestorage.sk";
 
     //TODO : parsing file config.txt -- attributo=valore 
@@ -201,6 +201,7 @@ int main () {
                         if (flag == -1) { //CLIENT TERMINATO LO RIMUOVO DAL SET DELLA SELECT
                             printf("Closing connection with client...\n");
                             FD_CLR(cfd1,&set);
+                            rdset=set;
                             if (cfd1 == num_fd) num_fd = updatemax(set,num_fd);
                             close(cfd1);
                             num_client--;
@@ -226,7 +227,7 @@ int main () {
             }
         }
         if (soft_term==1) break;
-    }
+    } 
 
     //TODO : STAMPA STATISTICHE RIASSUNTE  
 
@@ -273,7 +274,7 @@ void * worker (void * arg) {
             //STAMPE DEBUG
             //printf("NUMERO FILE : %d",sizeList());
             //printFile();
-            eseguiRichiesta(request,cfd);
+            eseguiRichiesta(request,cfd,pfd);
             
             //RITORNA IL CLIENT AL MANAGER TRAMITE LA PIPE
             SYSCALL(write(pfd,&cfd,sizeof(cfd)),"THREAD : pipe write");
@@ -292,7 +293,7 @@ void * worker (void * arg) {
 }
 
 //REQUEST CONTIENE : COMANDO,ARGOMENTI SEPARATI DA VIRGOLA
-void eseguiRichiesta (char * request, int cfd) {
+void eseguiRichiesta (char * request, int cfd, int pfd) {
     char response[DIM_MSG];
     char * token;
     token = strtok(request,",");
@@ -452,8 +453,9 @@ void eseguiRichiesta (char * request, int cfd) {
             }
         }
 
-    } else if (strcmp(token,"readNFiles")==0) {
+    } else if (strcmp(token,"readNFiles")==0) {//TODO : BUG
         //readNFiles,N
+        int fine=0;
         int e;
         //ARGOMENTI
         token = strtok(NULL,",");
@@ -470,6 +472,9 @@ void eseguiRichiesta (char * request, int cfd) {
             sprintf(buf,"%ld",strlen(curr->data));
             SYSCALL(write(cfd,buf,DIM_MSG),"THREAD : socket write");
 
+            char * buf2 = malloc(DIM_MSG*sizeof(char));
+            SYSCALL(read(cfd,buf2,DIM_MSG),"THREAD : socket read");
+
             //INVIA FILE
             SYSCALL(write(cfd,curr->data,strlen(curr->data)),"THREAD : socket write");
 
@@ -477,11 +482,11 @@ void eseguiRichiesta (char * request, int cfd) {
             i++;
             char * buf1 = malloc(DIM_MSG*sizeof(char));
             SYSCALL(read(cfd,buf1,DIM_MSG),"THREAD : socket read");
-
         }
         pthread_mutex_unlock(&lock_cache);
         //FILE FINITI INVIA SIZE==-2
-        SYSCALL(write(cfd,"-2",3),"THREAD : socket write");
+        
+        if (fine==0) SYSCALL(write(cfd,"-2",3),"THREAD : socket write");
 
     } else {
         //ENOSYS
@@ -690,7 +695,7 @@ int removeFile (char * path) {
         if ((strcmp(path,curr->path) == 0)) {
             rimosso=1;
             if (prec==NULL) {
-                    *list = curr->next;
+                *list = curr->next;
             }else{
                 prec->next = curr->next;
             }
@@ -770,10 +775,19 @@ int writeData(char * path, char * data, int cfd) {
             trovato=1;
             //CONTROLLA CHE LA PRECEDENTE OPERAZIONE DEL CLIENT SIA STATA UNA OPEN CREATE SUL FILE 
             if (curr->client_write == cfd) {
-                curr->data = malloc(sizeof(data));
-                curr->data = data;
-                curr->client_write = -1; 
-                scritto=1;
+                //CONTROLLA LIMITE MEMORIA
+                if (strlen(data)>max_dim) res = -1;
+                else if (dim_byte + strlen(data) > max_dim) {
+                    //RIMUOVI FILE 
+                    if (resize_cache(strlen(data)) == -1) res = -1;  
+                }
+                if (res==0) {
+                    curr->data = malloc(sizeof(data));
+                    curr->data = data;
+                    curr->client_write = -1; 
+                    scritto=1;
+                    dim_byte = dim_byte + strlen(data);
+                }
             }
         } else curr = curr->next;
     }
@@ -885,20 +899,32 @@ int fileOpen(node * list, int cfd) {
 }
 
 int resize_cache (int dim_data) {
-
+    //ELIMINA L'ULTIMO FILE DELLA LISTA FINCHE' NON C'E' ABBASTANZA SPAZIO PER IL NUOVO FILE 
     file ** list = &cache_file;
-    file * curr = *list;
 
-    while (curr!=NULL && (dim_byte + dim_data > max_dim)) {
-        //rimuovi in testa
-        dim_byte = dim_byte - dim_data; 
-        file * tmp  = *list;
-        *list = curr->next;
+    while (dim_byte + dim_data > max_dim) {
+        //ELIMINA IN CODA
+        file * tmp = *list; 
+        if (tmp==NULL) {
+            break;
+        } else if (tmp->next == NULL) {
+            *list = NULL;
+        } else {
+
+            file * prec = NULL;
+            while (tmp->next != NULL) {
+                prec = tmp;
+                tmp = tmp->next;
+            } 
+            prec->next = NULL;
+
+        }
+        dim_byte = dim_byte - strlen(tmp->data);
         free(tmp);
-        curr = curr->next;
+        
     }
     
-    if (curr == NULL && (dim_byte + dim_data > max_dim)) return -1; //DIM_FILE > MAX DIM CACHE
+    if (*list == NULL && (dim_byte + dim_data > max_dim)) return -1; //DIM_FILE > MAX DIM CACHE
 
     return 0; 
 }

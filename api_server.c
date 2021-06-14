@@ -350,11 +350,15 @@ int readFile(const char* pathname, void** buf, size_t* size) {
 
 }
 
-int readNFiles(int N, const char* dirname) {
+int readNFiles(int N, const char* dirname) { // TODO : BUG
 
     if (connesso==0) {
         errno=ENOTCONN;
         return -1;
+    }
+
+    if (dirname!=NULL) {
+        //TODO : SALVA FILE LETTI IN DIRNAME
     }
 
     char * buffer = malloc(DIM_MSG*sizeof(char));
@@ -375,7 +379,9 @@ int readNFiles(int N, const char* dirname) {
     int size_file = atoi(t);
     int nf=0;
 
-    while (size_file!=-2) { //SIZE_FILE == -2 --> FINITI I FILE 
+    while (size_file!=-2) { //SIZE_FILE == -2 --> FINITI I FILE
+
+        SYSCALL(write(sc,"0",DIM_MSG),EREMOTEIO);
 
         char * file_buf = malloc(size_file*sizeof(char));
 
@@ -389,7 +395,7 @@ int readNFiles(int N, const char* dirname) {
 
         printf("FILE : %s\n",file_buf);
 
-        SYSCALL(write(sc,"0",2),EREMOTEIO);
+        SYSCALL(write(sc,"0",DIM_MSG),EREMOTEIO);
 
         //RICEVI PPROSSIMA SIZE
         char * buf = malloc(DIM_MSG*sizeof(char));

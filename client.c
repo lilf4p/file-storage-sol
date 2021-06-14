@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <time.h>
 #include "api_server.h"
+#include <errno.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <limits.h>
 
 /*
 
@@ -21,20 +26,27 @@ gcc client.c -o client -L ./ -lapi
 int flag_stampa=0;
 
 long isNumber(const char* s);
+void listDir (char * dirname,int n);
 
 int main (int argc, char * argv[]) {
 
     char opt;
-    int hfnd, ffnd, pfnd;
+    int hfnd, ffnd, pfnd, dfnd;
     char *farg, *warg, *Warg, *rarg, *Rarg, *darg, *targ, *carg;
 
     //opzioni -f -h -p non possono essere ripetute
     hfnd=0;
     ffnd=0;
     pfnd=0;
+    dfnd=0;
+    
+    char *dir = NULL;
+    int tms=0;
 
     //OK GESTIONE ARGOMENTI
     //UNICO ARGOMENTO DA TOKENIZZARE CON TOKEN ','
+
+    //TODO : CERCA A MANO OPZIONI -d -h -t -p
 
     while ((opt = getopt(argc,argv,"hpf:w:W:r:R:d:t:c:")) != -1) {
         switch (opt) {
@@ -79,31 +91,29 @@ int main (int argc, char * argv[]) {
                 break;
 
             case 'w':
-                //TEST OPENFILE CON FLAG == 0
+        
                 warg=optarg;
                 printf("Opzione -w con argomento %s\n",warg);
-                //TODO : ESEGUI COMANDO CON API
                 char * save1 = NULL;
                 char * token1 = strtok_r(warg,",",&save1);
                 
-                while(token1) {
-                    char * file = token1;
-                    //per ogni file passato come argomento esegui open-write-close
-                    if (openFile(file,0)==-1) {
-                        perror("openFile");
-                    }
-                    
-                    if (appendToFile(file,"ho aggiunto contenuto a un file\0",32,NULL)==-1) {
-                        perror("appendToFile");
-                    }
+                char * dirname = token1;
+                int n;
 
-                    if (closeFile(file)==-1) {
-                        perror("closeFile");
-                    }
+                token1 = strtok_r(NULL,",",&save1);
+                if (token1!=NULL) {
+                    n = isNumber(token1);
+                } else n=0;
 
-                    token1 = strtok_r(NULL,",",&save1);
-
+                if (n>0) {
+                    //TODO : SCRIVI I FILE DI DIRNAME
+                    listDir(dirname,n);
+                }else if (n==0) {
+                    listDir(dirname,INT_MAX);
+                }else{
+                    printf("Utilizzo : -w dirname[,n]\n");
                 }
+                
                 break;
 
             case 'W':
@@ -116,17 +126,16 @@ int main (int argc, char * argv[]) {
                     char * file = token2;
                     //per ogni file passato come argomento esegui open-write-close
 
-                    if (openFile(file,1)==-1) {
-                        perror("openFile");
-                    }
+                    if (openFile(file,1)==-1) perror("openFile");
+                    else {
 
-                    //WRITE FILE
-                    if (writeFile(file,NULL)==-1) {
-                        perror("writeFile");
-                    } 
+                        //WRITE FILE
+                        if (writeFile(file,NULL)==-1) perror("writeFile");
+                        else {  
 
-                    if (closeFile(file)==-1) {
-                        perror("closeFile");
+                            if (closeFile(file)==-1) perror("closeFile");
+                        }
+
                     }
 
                     token2 = strtok_r(NULL,",",&save2);
@@ -148,21 +157,25 @@ int main (int argc, char * argv[]) {
 
                     if (openFile(file,0)==-1) {
                         perror("openFile");
-                        break;
-                    }
+                    }else{
 
-                    //WRITE FILE
-                    char * buf;
-                    size_t size;
-                    if (readFile(file,(void**)&buf,&size)==-1) {
-                        perror("writeFile");
-                        break;
-                    }
-                    printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
+                        //READ FILE
+                        char * buf;
+                        size_t size;
+                        if (readFile(file,(void**)&buf,&size)==-1) {
+                            perror("writeFile");
+                        } else {
+                            if (dfnd==1) {
+                                //TODO : SALVA IN DIR
+                            }
+                            printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
 
-                    if (closeFile(file)==-1) {
-                        perror("closeFile");
-                        break;
+                            if (closeFile(file)==-1) {
+                                perror("closeFile");
+                                break;
+                            }
+                        }
+
                     }
 
                     token3 = strtok_r(NULL,",",&save3);
@@ -174,24 +187,33 @@ int main (int argc, char * argv[]) {
 
             case 'R':
                 Rarg=optarg;
-                printf("Opzione -R con argomento %s\n",Rarg);
-                int n;
-                if ((n=readNFiles(atoi(optarg),NULL))==-1) {
-                    perror("readNFiles");
-                }else{
-                    printf("FILE LETTI : %d\n",n);
+                int val;
+                if ((val = isNumber(Rarg))==-1) printf("L'opzione -R vuole un numero come argomento\n");
+                else {
+                    printf("Opzione -R con argomento %s\n",Rarg);
+                    int n;
+                    if ((n=readNFiles(val,dir))==-1) {
+                        perror("readNFiles");
+                    }else{
+                        printf("FILE LETTI : %d\n",n);
+                    }
                 }
 
                 break;
 
             case 'd':
-                darg=optarg;
-                printf("Opzione -d con argomento %s\n",darg);
+                dir=optarg;
+                printf("Opzione -d con argomento %s\n",dir);
+                dfnd = 1;
                 break;
 
             case 't': 
                 targ=optarg;
-                printf("Opzione -t con argomento %s\n",targ);
+                if ((tms=isNumber(targ))==-1) {
+                    printf("L'opzione -t vuole un numero\n");
+                }else{
+                    printf("Opzione -t con argomento %s\n",targ);
+                }
                 break;
 
             case 'c': 
@@ -201,7 +223,7 @@ int main (int argc, char * argv[]) {
                 char * token4 = strtok_r(carg,",",&save4);
                 
                 while(token4) {
-                    char * file = token3;
+                    char * file = token4;
                     //per ogni file passato come argomento esegui open-write-close
                     if (removeFile(file)==-1) {
                         perror("removeFile");
@@ -223,10 +245,11 @@ int main (int argc, char * argv[]) {
 
             default:;
         }
+
+        msleep(tms);
     }
     
     //FINITE LE OPZIONI DA LINEA DI COMANDO CHIUDO LA CONNESSIONE SE ERA APERTA
-    //sleep(20);
     closeConnection(farg);
 
     return 0;
@@ -238,3 +261,51 @@ long isNumber(const char* s) {
    if (e != NULL && *e == (char)0) return val; 
    return -1;
 }
+
+void listDir (char * dirname,int n) {
+
+	DIR * dir;
+	struct dirent* entry;
+
+	if ((dir=opendir(dirname))==NULL||n==0) {
+		return;
+	}
+
+    printf ("Directory: %s\n",dirname);
+	while ((entry = readdir(dir))!=NULL) {
+		char path[100];
+		snprintf(path, sizeof(path), "%s/%s", dirname, entry->d_name); 
+
+        struct stat info;
+        if (stat(path,&info)==-1) {
+		perror("stat");
+		exit(EXIT_FAILURE);
+	    }
+
+		//SE FILE E' UNA DIRECTORY 
+		if (S_ISDIR(info.st_mode)) {
+			if (strcmp(entry->d_name,".")==0 || strcmp(entry->d_name,"..")==0) continue;
+			listDir(path,n--);
+		} else {
+        //E' UN FILE --> OPEN,WRITE,CLOSE
+
+        if (openFile(path,1)==-1) perror("openFile");
+        else {
+            //WRITE FILE
+            if (writeFile(path,NULL)==-1) perror("writeFile");
+            else {  
+                if (closeFile(path)==-1) perror("closeFile");
+            }
+        }
+        }
+
+
+
+	}
+
+	if ((closedir(dir))==-1) {
+		perror("closing directory");
+		exit(EXIT_FAILURE);
+	}
+}
+
