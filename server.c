@@ -38,6 +38,12 @@ typedef struct file {
 //TODO : STRUTTURA DATI PER SALVARE I FILE
 file * cache_file = NULL;
 pthread_mutex_t lock_cache = PTHREAD_MUTEX_INITIALIZER;
+int dim_byte; //DIMENSIONE CACHE IN BYTE
+int num_files; //NUMERO FILE IN CACHE
+
+//LIMITI DI MEMORIA
+int max_dim;
+int max_files;  
 
 //CODA DI COMUNICAZIONE MANAGER --> WORKERS / RISORSA CONDIVISA / CODA FIFO
 node * coda = NULL;  
@@ -45,7 +51,6 @@ pthread_mutex_t lock_coda = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t not_empty = PTHREAD_COND_INITIALIZER;
 
 volatile sig_atomic_t term = 0; //FLAG SETTATO DAL GESTORE DEI SEGNALI DI TERMINAZIONE
-int num_file=0;
 
 void * worker (void * arg);
 
@@ -67,15 +72,17 @@ int containFile (char * path); //1 se lo contiene, 0 se non lo contiene
 void printClient (node * list); //STAMPA LISTA DI CLIENT (FILE DESCRIPTOR SOCKET)
 int fileOpen(node * list, int cfd);
 int appendData (char * path, char * data, int cfd);//SCRIVE I DATI NEL FILE SSE CLIENT_OPEN CONTIENE CFD
+int resize_cache (int dim_data); //POLITICA DI SOSTITUZIONE IN CACHE FIFO 
+//TODO : VEDERE SE POSSIBILE NON ELIMINARE I FILE APERTI DA CLIENT -> ELIMINA IL PIU' VECCHIO NON APERTO -> SE TUTTI APERTI ALLORA ELIMINA IL PIU' VECCHIO 
 
 int main () {
 
     int i;
 
     //parametri server da settare con il config.txt
-    int num_thread = 1;
-    int max_file;
-    int max_dim;
+    int num_thread = 5;
+    max_files = 2; //CONTROLLARE QUANDO AGGIUNGO FILE CON SUCCESSO 
+    max_dim = 999999999;  //CONTROLLARE QUANDO SCRIVO DATI 
     char * socket_name = "/tmp/LSOfilestorage.sk";
 
     //TODO : parsing file config.txt -- attributo=valore 
@@ -243,9 +250,8 @@ void * worker (void * arg) {
     int pfd = *((int *)arg);
     int new = 1;
     int cfd;
-
     while (1) {
-        char *request = malloc(DIM_MSG);
+        char * request = malloc(DIM_MSG);
         //PRELEVA UN CLIENT DALLA CODA
         cfd = removeNode(&coda);
         if (cfd==-1) break;
@@ -276,6 +282,7 @@ void * worker (void * arg) {
     
         }
 
+        //free(request);
     }
     close(cfd);
     printf("Closing worker\n");
@@ -454,7 +461,7 @@ void eseguiRichiesta (char * request, int cfd) {
         int i=0;
 
         SYSCALL_PTHREAD(e,pthread_mutex_lock(&lock_cache),"LOCK IN READNFILES");
-        if (n<=0) n=num_file;
+        if (n<=0) n=num_files;
         file * curr = cache_file;
         while (i<n && curr!=NULL) {
             
@@ -577,19 +584,45 @@ int addFile (char * path, int flag, int cfd) {
     }
 
     if (flag==1 && trovato==0) { //CREO IL FILE -- LO INSERISCO IN TESTA 
-        printf("ADDFILE : CREO FILE\n");
-        fflush(stdout);
-        file * f = malloc(sizeof(file));
-        f->path = path;
-        f->data = NULL;
-        f->client_write = cfd;
-        f->client_open = NULL;
-        node * new = malloc (sizeof(node));
-        new->data = cfd;
-        new->next = f->client_open;
-        f->client_open = new;
-        f->next = *list;
-        *list =  f;
+        
+        //CONTROLLA SE < MAX_FILES 
+        if (num_files+1 > max_files) {
+            //TODO : RIMUOVI ULTIMO FILE DELLA LISTA --> FIFO
+            file * tmp = *list;
+            
+            if (tmp==NULL) {
+                res=-1;
+            } else if (tmp->next == NULL) {
+                *list = NULL;
+                free(tmp);
+            } else {
+
+                file * prec = NULL;
+                while (tmp->next != NULL) {
+                    prec = tmp;
+                    tmp = tmp->next;
+                } 
+                prec->next = NULL;
+                free(tmp);
+
+            }
+        }
+        if (res==0) {
+            printf("ADDFILE : CREO FILE\n");
+            fflush(stdout);
+            file * f = malloc(sizeof(file));
+            f->path = path;
+            f->data = NULL;
+            f->client_write = cfd;
+            f->client_open = NULL;
+            node * new = malloc (sizeof(node));
+            new->data = cfd;
+            new->next = f->client_open;
+            f->client_open = new;
+            f->next = *list;
+            *list =  f;
+            num_files++;
+        }
     }else if (flag==0 && trovato==1) { //APRO IL FILE PER CFD
         printf("ADDFILE : APRO FILE\n");
         //TODO : INSERIRE SSE LA LISTA CLIENT_OPEN NON CONTINE GIA' IL CFD -- CONTROLLO DUPLICATI
@@ -661,6 +694,8 @@ int removeFile (char * path) {
             }else{
                 prec->next = curr->next;
             }
+            dim_byte = dim_byte - strlen(curr->data);
+            num_files--;
             free(curr);
         }else{
             prec = curr;
@@ -767,10 +802,18 @@ int appendData (char * path, char * data, int cfd) {
             if (fileOpen(curr->client_open,cfd)==1) {
                 char * tmp = realloc(curr->data,(strlen(curr->data)+strlen(data)+1)*sizeof(char));
                 if (tmp != NULL) {
-                    strcat(tmp,data);
-                    scritto = 1;
-                    curr->data = tmp;
-                    if (curr->client_write == cfd) curr->client_write = -1;
+                    //CONTROLLA LIMITE MEMORIA
+                    if (dim_byte + strlen(data) > max_dim) {
+                        //TODO : RIMUOVI FILE 
+                        if (resize_cache(strlen(data)) == -1) res = -1;  
+                    }
+                    if (res==0) {
+                        strcat(tmp,data);
+                        scritto = 1;
+                        curr->data = tmp;
+                        if (curr->client_write == cfd) curr->client_write = -1;
+                        dim_byte = dim_byte + strlen(data);
+                    }
                 } 
             }
         } else curr = curr->next;
@@ -840,3 +883,23 @@ int fileOpen(node * list, int cfd) {
     }
     return 0;
 }
+
+int resize_cache (int dim_data) {
+
+    file ** list = &cache_file;
+    file * curr = *list;
+
+    while (curr!=NULL && (dim_byte + dim_data > max_dim)) {
+        //rimuovi in testa
+        dim_byte = dim_byte - dim_data; 
+        file * tmp  = *list;
+        *list = curr->next;
+        free(tmp);
+        curr = curr->next;
+    }
+    
+    if (curr == NULL && (dim_byte + dim_data > max_dim)) return -1; //DIM_FILE > MAX DIM CACHE
+
+    return 0; 
+}
+
