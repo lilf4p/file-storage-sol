@@ -34,6 +34,7 @@ int mkdir_p(const char *path);
 int openConnection(const char* sockname, int msec,const struct timespec abstime) {
     
     struct sockaddr_un sa;
+    memset(&sa,'0',sizeof(sa));
     strncpy(sa.sun_path,sockname,UNIX_PATH_MAX);
     sa.sun_family=AF_UNIX;
 
@@ -352,7 +353,7 @@ int readFile(const char* pathname, void** buf, size_t* size) {
 
 }
 
-
+//TODO : DA RIFARE -- SERVONO ANCHE I PATH DEI FILE !!!
 //TODO : SALVA FILE IN DIRNAME
 int readNFiles(int N, const char* dirname) { // TODO : BUG
 
