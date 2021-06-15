@@ -201,7 +201,7 @@ int main () {
                         if (flag == -1) { //CLIENT TERMINATO LO RIMUOVO DAL SET DELLA SELECT
                             printf("Closing connection with client...\n");
                             FD_CLR(cfd1,&set);
-                            rdset=set;
+                            //rdset=set;
                             if (cfd1 == num_fd) num_fd = updatemax(set,num_fd);
                             close(cfd1);
                             num_client--;

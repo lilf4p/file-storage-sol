@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <limits.h>
-
+#include <fcntl.h>
 /*
 
 gcc -c api_server.c -o api_server.o
@@ -24,15 +24,16 @@ gcc client.c -o client -L ./ -lapi
     if(c==-1) { perror(e);exit(EXIT_FAILURE); }
 
 int flag_stampa=0;
+static int num_files = 0;
 
 long isNumber(const char* s);
-void listDir (char * dirname,int n);
+void listDir (char * dirname, int n);
 
 int main (int argc, char * argv[]) {
 
     char opt;
     int hfnd, ffnd, pfnd, dfnd;
-    char *farg, *warg, *Warg, *rarg, *Rarg, *darg, *targ, *carg;
+    char *farg, *warg=NULL, *Warg, *rarg, *Rarg, *darg, *targ, *carg;
 
     //opzioni -f -h -p non possono essere ripetute
     hfnd=0;
@@ -167,6 +168,18 @@ int main (int argc, char * argv[]) {
                         } else {
                             if (dfnd==1) {
                                 //TODO : SALVA IN DIR
+                                char * path = malloc(100*sizeof(char));
+                                sprintf(path,"/%s/%s",dir,file);
+                                printf("%s\n",path);
+                                FILE* of;
+                                of = fopen(path,"w");
+                                if (of==NULL) {
+                                    printf("Errore aprendo il file\n");
+                                } else {
+                                    fprintf(of,"%s",buf);
+                                    fclose(of);
+                                    free(path);
+                                }
                             }
                             printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
 
@@ -262,17 +275,18 @@ long isNumber(const char* s) {
    return -1;
 }
 
-void listDir (char * dirname,int n) {
+void listDir (char * dirname, int n) {
 
 	DIR * dir;
 	struct dirent* entry;
 
-	if ((dir=opendir(dirname))==NULL||n==0) {
+	if ((dir=opendir(dirname))==NULL || num_files == n) {
 		return;
 	}
 
     printf ("Directory: %s\n",dirname);
-	while ((entry = readdir(dir))!=NULL) {
+	while ((entry = readdir(dir))!=NULL && (num_files < n)) {
+        
 		char path[100];
 		snprintf(path, sizeof(path), "%s/%s", dirname, entry->d_name); 
 
@@ -285,18 +299,21 @@ void listDir (char * dirname,int n) {
 		//SE FILE E' UNA DIRECTORY 
 		if (S_ISDIR(info.st_mode)) {
 			if (strcmp(entry->d_name,".")==0 || strcmp(entry->d_name,"..")==0) continue;
-			listDir(path,n--);
+			listDir(path,n);
 		} else {
-        //E' UN FILE --> OPEN,WRITE,CLOSE
-
-        if (openFile(path,1)==-1) perror("openFile");
-        else {
-            //WRITE FILE
-            if (writeFile(path,NULL)==-1) perror("writeFile");
-            else {  
-                if (closeFile(path)==-1) perror("closeFile");
+            //STAMPO INFO FILE
+            //printf ("\n%s\t%ld\t",path,info.st_size);
+            //E' UN FILE --> OPEN,WRITE,CLOSE
+            if (openFile(path,1)==-1) perror("openFile");
+            else {
+                num_files++;
+                //WRITE FILE
+                if (writeFile(path,NULL)==-1) perror("writeFile");
+                else {  
+                    if (closeFile(path)==-1) perror("closeFile");
+                }
             }
-        }
+            
         }
 
 
