@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #define DIM_MSG 100
 #define UNIX_PATH_MAX 108 /* man 7 unix */ 
@@ -26,6 +27,8 @@ char response[DIM_MSG];
 //FUNZIONI DI UTILITA'
 int msleep(long tms);
 int compare_time (struct timespec a, struct timespec b);
+int mkdir_p(const char *path);
+
 
 //SE CONNESSO RITORNA 0, ALTRIMENTI -1 E SETTA ERRNO
 int openConnection(const char* sockname, int msec,const struct timespec abstime) {
@@ -52,7 +55,6 @@ int openConnection(const char* sockname, int msec,const struct timespec abstime)
 
     SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
     printf("%s\n",response);
-    fflush(stdin);
     connesso = 1;
     socket_name = sockname;
     return 0;
@@ -350,6 +352,8 @@ int readFile(const char* pathname, void** buf, size_t* size) {
 
 }
 
+
+//TODO : SALVA FILE IN DIRNAME
 int readNFiles(int N, const char* dirname) { // TODO : BUG
 
     if (connesso==0) {
@@ -358,7 +362,9 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
     }
 
     if (dirname!=NULL) {
-        //TODO : SALVA FILE LETTI IN DIRNAME
+        //CREA DIR SE NON ESISTE 
+        printf("DIRECTORY : %s\n",dirname);
+        mkdir_p(dirname);
     }
 
     char * buffer = malloc(DIM_MSG*sizeof(char));
@@ -389,8 +395,26 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         SYSCALL(read(sc,file_buf,size_file),EREMOTEIO);
         nf++;
 
+        //TODO : RICEVI PATHNAME 
+        char *pathname;
+
         if(dirname!=NULL) {
-            //SALVA NELLA DIRECTORY DEL CLIENT 
+            //SALVA NELLA DIRECTORY DEL CLIENT
+            //SALVA IN DIR
+            char path[PATH_MAX];
+            char * file_name = basename(pathname);
+            sprintf(path,"%s/%s",dirname,file_name);
+            printf("FILE : %s\n",path);             
+
+            //CREA FILE SE NON ESISTE
+            FILE* of;
+            of = fopen(path,"w");
+            if (of==NULL) {
+                printf("Errore aprendo il file\n");
+            } else {
+                fprintf(of,"%s",file_buf);
+                fclose(of);
+            } 
         }
 
         printf("FILE : %s\n",file_buf);
@@ -457,4 +481,44 @@ int compare_time (struct timespec a, struct timespec b) {
     }else if (a.tv_sec > b.tv_sec) return 1;
     else return -1;
 }
+
+int mkdir_p(const char *path)
+{
+    /* Adapted from http://stackoverflow.com/a/2336245/119527 */
+    const size_t len = strlen(path);
+    char _path[PATH_MAX];
+    char *p; 
+
+    errno = 0;
+
+    /* Copy string so its mutable */
+    if (len > sizeof(_path)-1) {
+        errno = ENAMETOOLONG;
+        return -1; 
+    }   
+    strcpy(_path, path);
+
+    /* Iterate the string */
+    for (p = _path + 1; *p; p++) {
+        if (*p == '/') {
+            /* Temporarily truncate */
+            *p = '\0';
+
+            if (mkdir(_path, S_IRWXU) != 0) {
+                if (errno != EEXIST)
+                    return -1; 
+            }
+
+            *p = '/';
+        }
+    }   
+
+    if (mkdir(_path, S_IRWXU) != 0) {
+        if (errno != EEXIST)
+            return -1; 
+    }   
+
+    return 0;
+}
+
 

@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <libgen.h>
 /*
 
 gcc -c api_server.c -o api_server.o
@@ -98,7 +99,7 @@ int main (int argc, char * argv[]) {
                 char * save1 = NULL;
                 char * token1 = strtok_r(warg,",",&save1);
                 
-                char * dirname = token1;
+                char * namedir = token1;
                 int n;
 
                 token1 = strtok_r(NULL,",",&save1);
@@ -107,10 +108,10 @@ int main (int argc, char * argv[]) {
                 } else n=0;
 
                 if (n>0) {
-                    //TODO : SCRIVI I FILE DI DIRNAME
-                    listDir(dirname,n);
+                    //TODO : SCRIVI I FILE DI NAMEDIR
+                    listDir(namedir,n);
                 }else if (n==0) {
-                    listDir(dirname,INT_MAX);
+                    listDir(namedir,INT_MAX);
                 }else{
                     printf("Utilizzo : -w dirname[,n]\n");
                 }
@@ -167,10 +168,18 @@ int main (int argc, char * argv[]) {
                             perror("writeFile");
                         } else {
                             if (dfnd==1) {
-                                //TODO : SALVA IN DIR
-                                char * path = malloc(100*sizeof(char));
-                                sprintf(path,"/%s/%s",dir,file);
-                                printf("%s\n",path);
+                                //SALVA IN DIR
+                                char path[PATH_MAX];
+                                char * file_name = basename(file);
+                                sprintf(path,"%s/%s",dir,file_name);
+                                printf("FILE : %s\n",path);
+
+                                
+                                //CREA DIR SE NON ESISTE 
+                                printf("DIRECTORY : %s\n",dir);
+                                mkdir_p(dir);
+
+                                //CREA FILE SE NON ESISTE
                                 FILE* of;
                                 of = fopen(path,"w");
                                 if (of==NULL) {
@@ -178,7 +187,6 @@ int main (int argc, char * argv[]) {
                                 } else {
                                     fprintf(of,"%s",buf);
                                     fclose(of);
-                                    free(path);
                                 }
                             }
                             printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
@@ -198,6 +206,7 @@ int main (int argc, char * argv[]) {
 
                 break;
 
+            //TODO : SALVA FILE IN DIRNAME 
             case 'R':
                 Rarg=optarg;
                 int val;
@@ -205,6 +214,7 @@ int main (int argc, char * argv[]) {
                 else {
                     printf("Opzione -R con argomento %s\n",Rarg);
                     int n;
+        
                     if ((n=readNFiles(val,dir))==-1) {
                         perror("readNFiles");
                     }else{
