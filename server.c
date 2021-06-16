@@ -265,7 +265,7 @@ void * worker (void * arg) {
             SYSCALL(write(pfd,&cfd,sizeof(cfd)),"THREAD : pipe write");
             SYSCALL(write(pfd,&fine,sizeof(fine)),"THREAD : pipe write");
         }else if (len == -1) {
-            perror("THREAD : read socket");
+            perror("THREAD : READ1");
             exit(EXIT_FAILURE);
         }else{
             printf ("From Client : %s\n",request);
@@ -457,36 +457,81 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
         //readNFiles,N
         int fine=0;
         int e;
+
         //ARGOMENTI
         token = strtok(NULL,",");
-        int n = atoi(token);
-        int i=0;
+        int n_richiesti = atoi(token);
+        //printf ("RICHIESTI=%d ESISTENTI=%d\n",n_richiesti,num_files);
 
         SYSCALL_PTHREAD(e,pthread_mutex_lock(&lock_cache),"LOCK IN READNFILES");
-        if (n<=0) n=num_files;
-        file * curr = cache_file;
-        while (i<n && curr!=NULL) {
-            
-            //INVIA AL CLIENT SIZE FILE
-            char * buf = malloc(DIM_MSG*sizeof(char));
-            sprintf(buf,"%ld",strlen(curr->data));
-            SYSCALL(write(cfd,buf,DIM_MSG),"THREAD : socket write");
 
-            char * buf2 = malloc(DIM_MSG*sizeof(char));
-            SYSCALL(read(cfd,buf2,DIM_MSG),"THREAD : socket read");
+        //INVIO NUMERO DI FILE AL CLIENT
+        if (n_richiesti <= 0 || n_richiesti > num_files) n_richiesti=num_files;
+        
+        char * nbuf = malloc(DIM_MSG*sizeof(char));
+        sprintf(nbuf,"%d",n_richiesti);
+        SYSCALL(write(cfd,nbuf,sizeof(nbuf)),"THREAD : WRITE 1");
+        
+        //RICEVO LA CONFERMA DEL CLIENT
+        char * conf0 = malloc(DIM_MSG*sizeof(char));
+        //ERR MALLOC 
+        SYSCALL(read(cfd,conf0,sizeof(conf0)),"THREAD : READ 2");
+        printf("From client : %s\n",conf0);
+        //fflush(stdout);
+        //if (strcmp(conf0,"ok")!=0) return;
+        
+        //INVIO GLI N FILES
+        file * curr = cache_file;
+        for (int i=0;i<n_richiesti;i++) {
+            
+            //INVIA PATH AL CLIENT
+            char * path = malloc(DIM_MSG*sizeof(char));
+            //ERR MALLOC
+            sprintf(path,"%s",curr->path);
+            SYSCALL(write(cfd,path,DIM_MSG),"THREAD : WRITE 2");
+
+            //RICEVO LA CONFERMA DEL CLIENT
+            char * conf1 = malloc(DIM_MSG*sizeof(char));
+            //ERR MALLOC 
+            SYSCALL(read(cfd,conf1,sizeof(conf1)),"THREAD : READ 3");
+            printf("From client : %s\n",conf1);
+            //fflush(stdout);
+            //if (strcmp(conf1,"0")!=0) return;
+
+            //INVIO SIZE 
+            char * ssize = malloc(DIM_MSG*sizeof(char));
+            sprintf(ssize,"%ld",strlen(curr->data));
+            SYSCALL(write(cfd,ssize,sizeof(ssize)),"THREAD : WRITE 3");
+
+            //RICEVO LA CONFERMA DEL CLIENT
+            char * conf2 = malloc(DIM_MSG*sizeof(char));
+            //ERR MALLOC 
+            SYSCALL(read(cfd,conf2,DIM_MSG),"THREAD : READ 4");
+            printf("From client : %s\n",conf2);
+            //fflush(stdout);
+            //if (strcmp(conf2,"ok")!=0) return;
 
             //INVIA FILE
-            SYSCALL(write(cfd,curr->data,strlen(curr->data)),"THREAD : socket write");
+            SYSCALL(write(cfd,curr->data,strlen(curr->data)),"THREAD : WRITE 4");
 
+            //RICEVO LA CONFERMA DEL CLIENT
+            //char * conf3 = malloc(DIM_MSG*sizeof(char));
+            //ERR MALLOC 
+            //SYSCALL(read(cfd,conf3,sizeof(conf3)),"THREAD : READ 5");
+            //printf("From client : %s\n",conf3);
+            //if (strcmp(conf3,"0")!=0) return;
+
+            //free(path);
+            //free(ssize);
+            //free(conf0);
+            //free(conf1);
+            //free(conf2);
+            //free(conf3);
             curr = curr->next;
-            i++;
-            char * buf1 = malloc(DIM_MSG*sizeof(char));
-            SYSCALL(read(cfd,buf1,DIM_MSG),"THREAD : socket read");
         }
         pthread_mutex_unlock(&lock_cache);
-        //FILE FINITI INVIA SIZE==-2
-        
-        if (fine==0) SYSCALL(write(cfd,"-2",3),"THREAD : socket write");
+        //free(conf0);
+        //SYSCALL(write(cfd,"0",2),"THREAD : WRITE FINE");
 
     } else {
         //ENOSYS

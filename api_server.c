@@ -362,84 +362,160 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         return -1;
     }
 
+    /*
     if (dirname!=NULL) {
         //CREA DIR SE NON ESISTE 
         printf("DIRECTORY : %s\n",dirname);
+        fflush(stdout);
         mkdir_p(dirname);
     }
+    */
 
-    char * buffer = malloc(DIM_MSG*sizeof(char));
-    sprintf(buffer, "readNFiles,%d",N);
+    //INVIA IL COMANDO AL SERVER 
+    char * bufsend = malloc(DIM_MSG*sizeof(char));
+    if (bufsend == NULL) {
+        errno = ENOTRECOVERABLE;
+        return -1;
+    }
+    sprintf(bufsend, "readNFiles,%d",N);
+    SYSCALL(write(sc,bufsend,DIM_MSG),EREMOTEIO);
 
-    SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
-
-    SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
-    printf("From Server : %s\n",response);
-
-    char * t;
-    t = strtok(response,",");
+    //RICEVE IL NUMERO DI FILE CHE IL SERVER INVIA
+    char * bufrec = malloc(DIM_MSG*sizeof(char));
+    if (bufrec == NULL) {
+        errno = ENOTRECOVERABLE;
+        free(bufsend);
+        return -1;
+    } 
+    SYSCALL(read(sc,bufrec,DIM_MSG),EREMOTEIO);
+    printf("From Server : NUM FILE = %s\n",bufrec);
+    
+    char * t = strtok(bufrec,",");
     if (strcmp(t,"-1")==0) { //ERRORE DAL SERVER
         t = strtok(NULL,",");
         errno = atoi(t);
+        free(bufsend);
+        free(bufrec);
         return -1;
     }
-    int size_file = atoi(t);
-    int nf=0;
+    int nf = atoi(t);//NUMERO DI FILE CONCORDATO CON IL SERVER 
+    int i=0;
+    
+    //CONFERMA AL SERVER 
+    char * buf0 = malloc(DIM_MSG*sizeof(char));
+    buf0="ok";
+    SYSCALL(write(sc,buf0,sizeof(buf0)),EREMOTEIO);
+    
+    //RICEVI N VOLTE PATH,SIZE,DATA
+    for (i=0;i<nf;i++) {
 
-    while (size_file!=-2) { //SIZE_FILE == -2 --> FINITI I FILE
-
-        SYSCALL(write(sc,"0",DIM_MSG),EREMOTEIO);
-
-        char * file_buf = malloc(size_file*sizeof(char));
-
-        //RICEVI FILE 
-        SYSCALL(read(sc,file_buf,size_file),EREMOTEIO);
-        nf++;
-
-        //TODO : RICEVI PATHNAME 
-        char *pathname;
-
-        if(dirname!=NULL) {
-            //SALVA NELLA DIRECTORY DEL CLIENT
-            //SALVA IN DIR
-            char path[PATH_MAX];
-            char * file_name = basename(pathname);
-            sprintf(path,"%s/%s",dirname,file_name);
-            printf("FILE : %s\n",path);             
-
-            //CREA FILE SE NON ESISTE
-            FILE* of;
-            of = fopen(path,"w");
-            if (of==NULL) {
-                printf("Errore aprendo il file\n");
-            } else {
-                fprintf(of,"%s",file_buf);
-                fclose(of);
-            } 
+        //RICEVO PATH
+        char * path = malloc (DIM_MSG*sizeof(char));
+        if (path == NULL) {
+            free(bufsend);
+            free(bufrec);
+            errno = ENOTRECOVERABLE;
+            return -1;
         }
-
-        printf("FILE : %s\n",file_buf);
-
-        SYSCALL(write(sc,"0",DIM_MSG),EREMOTEIO);
-
-        //RICEVI PPROSSIMA SIZE
-        char * buf = malloc(DIM_MSG*sizeof(char));
-        SYSCALL(read(sc,buf,DIM_MSG),EREMOTEIO);
-        printf("From Server : %s\n",buf);
-
-        char * t1;
-        t1 = strtok(buf,",");
+        SYSCALL(read(sc,path,DIM_MSG),EREMOTEIO);
+        printf("From Server : PATH = %s\n",path);
+        
+        /*
+        char *t1 = strtok(path,",");
         if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
             t1 = strtok(NULL,",");
             errno = atoi(t1);
+            free(bufsend);
+            free(bufrec);
+            free(path);
             return -1;
-        }else if (strcmp(t1,"-2")==0) break;
+        }
+        */
 
-        int size_file = atoi(t1);
-        printf("size file: %d\n",size_file);
+        //CONFERMA AL SERVER 
+        char * buf2 = malloc(DIM_MSG*sizeof(char));
+        buf2="ok";
+        SYSCALL(write(sc,buf2,sizeof(buf2)),EREMOTEIO);
+    
+
+        //RICEVO SIZE
+        char * ssize = malloc (DIM_MSG*sizeof(char));
+        if (ssize == NULL) {
+            free(bufsend);
+            free(bufrec);
+            free(path);
+            errno = ENOTRECOVERABLE;
+            return -1;
+        }
+        SYSCALL(read(sc,ssize,DIM_MSG),EREMOTEIO);
+        printf("From Server : SIZE = %s\n",ssize);
+        
+        /*
+        char *t2 = strtok(ssize,",");
+        if (strcmp(t2,"-1")==0) { //ERRORE DAL SERVER
+            t2 = strtok(NULL,",");
+            errno = atoi(t2);
+            free(bufsend);
+            free(bufrec);
+            free(path);
+            free(ssize);
+            return -1;
+        }
+        */
+        int size_file = atoi(ssize);
+
+        //CONFERMA AL SERVER 
+        char * buf1 = malloc(DIM_MSG*sizeof(char));
+        buf1="ok";
+        SYSCALL(write(sc,buf1,sizeof(buf1)),EREMOTEIO);
+
+        //RICEVO FILE  
+        char * fbuf = malloc (size_file*sizeof(char));
+        if (fbuf == NULL) {
+            free(bufsend);
+            free(bufrec);
+            free(path);
+            free(ssize);
+            errno = ENOTRECOVERABLE;
+            return -1;
+        }
+        SYSCALL(read(sc,fbuf,size_file),EREMOTEIO);
+        printf("From Server : FILE = %s\n",fbuf);
+        
+        /*
+        char *t3 = strtok(fbuf,",");
+        if (strcmp(t3,"-1")==0) { //ERRORE DAL SERVER
+            t3 = strtok(NULL,",");
+            errno = atoi(t3);
+            free(bufsend);
+            free(bufrec);
+            free(path);
+            free(ssize);
+            free(fbuf);
+            return -1;
+        }
+        */
+
+        if (dirname!=NULL) {
+            //SALVO FILE IN DIRNAME
+        }
+        printf("PATH=%s SIZE=%d CONTENUTO=%s\n",path,size_file,fbuf);
+        
+
+        //CONFERMA AL SERVER 
+        //SYSCALL(write(sc,"0",DIM_MSG),EREMOTEIO);
+
+        //free(path);
+        //free(ssize);
+        //free(fbuf);
 
     }
+    //char * fine = malloc(DIM_MSG*sizeof(char));
+    //SYSCALL(read(sc,fine,DIM_MSG),EREMOTEIO);
 
+    //SUCCESSO --> RUITORNO IL NUMERO DI FILE LETTI 
+    //free(bufsend);
+    //free(bufrec);
     return nf;
 
 }
