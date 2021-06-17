@@ -49,6 +49,7 @@ int main (int argc, char * argv[]) {
     //UNICO ARGOMENTO DA TOKENIZZARE CON TOKEN ','
 
     //TODO : CERCA A MANO OPZIONI -d -h -t -p
+    char * resolvedPath = NULL;
 
     while ((opt = getopt(argc,argv,"hpf:w:W:r:R:d:t:c:")) != -1) {
         switch (opt) {
@@ -123,26 +124,33 @@ int main (int argc, char * argv[]) {
                 printf("Opzione -W con argomento %s\n",Warg);
                 char * save2 = NULL;
                 char * token2 = strtok_r(Warg,",",&save2);
-                
+
                 while(token2) {
                     char * file = token2;
                     //per ogni file passato come argomento esegui open-write-close
 
-                    if (openFile(file,1)==-1) perror("openFile");
-                    else {
+                    if ((resolvedPath = realpath(file,resolvedPath))==NULL) {
+                        printf("Il file %s non esiste\n",file);
+                        perror("realpath");
+                    }else{
 
-                        //WRITE FILE
-                        if (writeFile(file,NULL)==-1) perror("writeFile");
-                        else {  
+                        if (openFile(resolvedPath,1)==-1) perror("openFile");
+                        else {
 
-                            if (closeFile(file)==-1) perror("closeFile");
+                            //WRITE FILE
+                            if (writeFile(resolvedPath,NULL)==-1) perror("writeFile");
+                            else {  
+
+                                if (closeFile(resolvedPath)==-1) perror("closeFile");
+                            }
+
                         }
-
                     }
 
                     token2 = strtok_r(NULL,",",&save2);
 
                 }
+                free(token2);
 
                 break;
 
@@ -157,52 +165,58 @@ int main (int argc, char * argv[]) {
                     char * file = token3;
                     //per ogni file passato come argomento esegui open-write-close
 
-                    if (openFile(file,0)==-1) {
-                        perror("openFile");
+                    if ((resolvedPath = realpath(file,resolvedPath))==NULL) {
+                        printf("Il file %s non esiste\n",file);
+                        perror("realpath");
                     }else{
 
-                        //READ FILE
-                        char * buf;
-                        size_t size;
-                        if (readFile(file,(void**)&buf,&size)==-1) {
-                            perror("writeFile");
-                        } else {
-                            if (dfnd==1) {
-                                //SALVA IN DIR
-                                char path[PATH_MAX];
-                                char * file_name = basename(file);
-                                sprintf(path,"%s/%s",dir,file_name);
-                                printf("FILE : %s\n",path);
+                        if (openFile(resolvedPath,0)==-1) {
+                            perror("openFile");
+                        }else{
 
-                                
-                                //CREA DIR SE NON ESISTE 
-                                printf("DIRECTORY : %s\n",dir);
-                                mkdir_p(dir);
+                            //READ FILE
+                            char * buf;
+                            size_t size;
+                            if (readFile(resolvedPath,(void**)&buf,&size)==-1) {
+                                perror("writeFile");
+                            } else {
+                                if (dfnd==1) {
+                                    //SALVA IN DIR
+                                    char path[PATH_MAX];
+                                    char * file_name = basename(resolvedPath);
+                                    sprintf(path,"%s/%s",dir,file_name);
+                                    printf("FILE : %s\n",path);
 
-                                //CREA FILE SE NON ESISTE
-                                FILE* of;
-                                of = fopen(path,"w");
-                                if (of==NULL) {
-                                    printf("Errore aprendo il file\n");
-                                } else {
-                                    fprintf(of,"%s",buf);
-                                    fclose(of);
+                                    
+                                    //CREA DIR SE NON ESISTE 
+                                    printf("DIRECTORY : %s\n",dir);
+                                    mkdir_p(dir);
+
+                                    //CREA FILE SE NON ESISTE
+                                    FILE* of;
+                                    of = fopen(path,"w");
+                                    if (of==NULL) {
+                                        printf("Errore aprendo il file\n");
+                                    } else {
+                                        fprintf(of,"%s",buf);
+                                        fclose(of);
+                                    }
+                                }
+                                printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
+
+                                if (closeFile(resolvedPath)==-1) {
+                                    perror("closeFile");
+                                    break;
                                 }
                             }
-                            printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
 
-                            if (closeFile(file)==-1) {
-                                perror("closeFile");
-                                break;
-                            }
                         }
-
                     }
 
                     token3 = strtok_r(NULL,",",&save3);
 
                 }
-
+                free(token3);
 
                 break;
 
@@ -247,9 +261,15 @@ int main (int argc, char * argv[]) {
                 
                 while(token4) {
                     char * file = token4;
-                    //per ogni file passato come argomento esegui open-write-close
-                    if (removeFile(file)==-1) {
-                        perror("removeFile");
+
+                    if ((resolvedPath = realpath(file,resolvedPath))==NULL) {
+                        printf("Il file %s non esiste\n",file);
+                        perror("realpath");
+                    }else{
+                        //per ogni file passato come argomento esegui close
+                        if (removeFile(resolvedPath)==-1) {
+                            perror("removeFile");
+                        }
                     }
                     //printf("TOKEN\n");
                     token4 = strtok_r(NULL,",",&save4);
@@ -271,7 +291,7 @@ int main (int argc, char * argv[]) {
 
         msleep(tms);
     }
-    
+    free(resolvedPath);
     //FINITE LE OPZIONI DA LINEA DI COMANDO CHIUDO LA CONNESSIONE SE ERA APERTA
     closeConnection(farg);
 
@@ -314,14 +334,21 @@ void listDir (char * dirname, int n) {
             //STAMPO INFO FILE
             //printf ("\n%s\t%ld\t",path,info.st_size);
             //E' UN FILE --> OPEN,WRITE,CLOSE
-            if (openFile(path,1)==-1) perror("openFile");
-            else {
-                num_files++;
-                //WRITE FILE
-                if (writeFile(path,NULL)==-1) perror("writeFile");
-                else {  
-                    if (closeFile(path)==-1) perror("closeFile");
+            char * resolvedPath = NULL;
+            if ((resolvedPath = realpath(path,resolvedPath))==NULL) {
+                printf("Il file %s non esiste\n",path);
+                perror("realpath");
+            }else{
+                if (openFile(resolvedPath,1)==-1) perror("openFile");
+                else {
+                    num_files++;
+                    //WRITE FILE
+                    if (writeFile(resolvedPath,NULL)==-1) perror("writeFile");
+                    else {  
+                        if (closeFile(resolvedPath)==-1) perror("closeFile");
+                    }
                 }
+                free(resolvedPath);
             }
             
         }

@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <libgen.h>
 
 #define DIM_MSG 100
 #define UNIX_PATH_MAX 108 /* man 7 unix */ 
@@ -361,15 +362,12 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         errno=ENOTCONN;
         return -1;
     }
-
-    /*
+    
     if (dirname!=NULL) {
         //CREA DIR SE NON ESISTE 
         printf("DIRECTORY : %s\n",dirname);
-        fflush(stdout);
         mkdir_p(dirname);
     }
-    */
 
     //INVIA IL COMANDO AL SERVER 
     char * bufsend = malloc(DIM_MSG*sizeof(char));
@@ -497,7 +495,20 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         */
 
         if (dirname!=NULL) {
-            //SALVO FILE IN DIRNAME
+            //SALVA IN DIR
+            char sp[PATH_MAX];
+            char * file_name = basename(path);
+            sprintf(sp,"%s/%s",dirname,file_name);
+            printf("FILE : %s\n",sp);
+            //CREA FILE SE NON ESISTE
+            FILE* of;
+            of = fopen(sp,"w");
+            if (of==NULL) {
+                printf("Errore aprendo il file\n");
+            } else {
+                fprintf(of,"%s",fbuf);
+                fclose(of);
+            }
         }
         printf("PATH=%s SIZE=%d CONTENUTO=%s\n",path,size_file,fbuf);
         
