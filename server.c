@@ -467,7 +467,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
 
         //INVIO NUMERO DI FILE AL CLIENT
         if (n_richiesti <= 0 || n_richiesti > num_files) n_richiesti=num_files;
-        
+        printf("RICHIESTI=%d DISPONIBILI=%d\n",n_richiesti,num_files);
         char * nbuf = malloc(DIM_MSG*sizeof(char));
         sprintf(nbuf,"%d",n_richiesti);
         SYSCALL(write(cfd,nbuf,sizeof(nbuf)),"THREAD : WRITE 1");
@@ -645,6 +645,7 @@ int addFile (char * path, int flag, int cfd) {
             } else if (tmp->next == NULL) {
                 *list = NULL;
                 free(tmp);
+                num_files--;
             } else {
 
                 file * prec = NULL;
@@ -654,7 +655,7 @@ int addFile (char * path, int flag, int cfd) {
                 } 
                 prec->next = NULL;
                 free(tmp);
-
+                num_files--;
             }
         }
         if (res==0) {
@@ -965,6 +966,7 @@ int resize_cache (int dim_data) {
 
         }
         dim_byte = dim_byte - strlen(tmp->data);
+        num_files--;
         free(tmp);
         
     }

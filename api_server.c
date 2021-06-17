@@ -418,7 +418,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         SYSCALL(read(sc,path,DIM_MSG),EREMOTEIO);
         printf("From Server : PATH = %s\n",path);
         
-        /*
+        
         char *t1 = strtok(path,",");
         if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
             t1 = strtok(NULL,",");
@@ -428,7 +428,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
             free(path);
             return -1;
         }
-        */
+        
 
         //CONFERMA AL SERVER 
         char * buf2 = malloc(DIM_MSG*sizeof(char));
@@ -448,7 +448,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         SYSCALL(read(sc,ssize,DIM_MSG),EREMOTEIO);
         printf("From Server : SIZE = %s\n",ssize);
         
-        /*
+        
         char *t2 = strtok(ssize,",");
         if (strcmp(t2,"-1")==0) { //ERRORE DAL SERVER
             t2 = strtok(NULL,",");
@@ -459,7 +459,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
             free(ssize);
             return -1;
         }
-        */
+        
         int size_file = atoi(ssize);
 
         //CONFERMA AL SERVER 
@@ -480,7 +480,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         SYSCALL(read(sc,fbuf,size_file),EREMOTEIO);
         printf("From Server : FILE = %s\n",fbuf);
         
-        /*
+        
         char *t3 = strtok(fbuf,",");
         if (strcmp(t3,"-1")==0) { //ERRORE DAL SERVER
             t3 = strtok(NULL,",");
@@ -492,7 +492,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
             free(fbuf);
             return -1;
         }
-        */
+        
 
         if (dirname!=NULL) {
             //SALVA IN DIR
@@ -512,21 +512,15 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         }
         printf("PATH=%s SIZE=%d CONTENUTO=%s\n",path,size_file,fbuf);
         
-
-        //CONFERMA AL SERVER 
-        //SYSCALL(write(sc,"0",DIM_MSG),EREMOTEIO);
-
-        //free(path);
-        //free(ssize);
-        //free(fbuf);
+        free(path);
+        free(ssize);
+        free(fbuf);
 
     }
-    //char * fine = malloc(DIM_MSG*sizeof(char));
-    //SYSCALL(read(sc,fine,DIM_MSG),EREMOTEIO);
 
-    //SUCCESSO --> RUITORNO IL NUMERO DI FILE LETTI 
-    //free(bufsend);
-    //free(bufrec);
+    //SUCCESSO --> RITORNO IL NUMERO DI FILE LETTI 
+    free(bufsend);
+    free(bufrec);
     return nf;
 
 }
