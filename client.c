@@ -453,7 +453,7 @@ void addLast (node ** list,char * cmd,char * arg) {
     new->cmd = malloc(sizeof(cmd));
     strcpy(new->cmd,cmd);
     if (arg!=NULL) {
-        new->arg = malloc(sizeof(arg));
+        new->arg = malloc(PATH_MAX*sizeof(char));
         strcpy(new->arg,arg);
     }else new->arg = NULL;
     new->next = NULL;

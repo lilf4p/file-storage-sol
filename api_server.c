@@ -131,7 +131,7 @@ int writeFile(const char* pathname, const char* dirname) {
     SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
     SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
-    printf("From Server : %s\n",response);
+    //printf("From Server : %s\n",response);
 
     char * t;
     t = strtok(response,",");
@@ -406,9 +406,10 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
     
     //RICEVI N VOLTE PATH,SIZE,DATA
     for (i=0;i<nf;i++) {
+        printf("%d\n",i);
 
         //RICEVO PATH
-        char * path = malloc (DIM_MSG*sizeof(char));
+        char * path = malloc (PATH_MAX*sizeof(char));
         if (path == NULL) {
             free(bufsend);
             free(bufrec);

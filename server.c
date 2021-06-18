@@ -27,7 +27,7 @@ typedef struct node {
 } node;
 
 typedef struct file {
-    char * path;
+    char path[PATH_MAX];
     char * data;
     node * client_open;
     int client_write; //FILE DESCRIPTOR DEL CLIENT CHE HA ESEGUITO COME ULTIMA OPERAZIONE UNA openFile con flag O_CREATE
@@ -66,7 +66,7 @@ int addFile (char * path, int flags, int cfd);
 char * getFile (char * path, int cfd);
 int removeFile (char * path);
 int removeClient (char * path, int cfd);
-int writeData(char * path, char * data, int cfd);//SCRIVE I DATI NEL FILE SSE CLIENT_WRITE == CFD
+int writeData(char * path, char * data, int size, int cfd);//SCRIVE I DATI NEL FILE SSE CLIENT_WRITE == CFD
 int sizeList ();
 void printFile ();
 int containFile (char * path); //1 se lo contiene, 0 se non lo contiene
@@ -75,7 +75,8 @@ int fileOpen(node * list, int cfd);
 int appendData (char * path, char * data, int cfd);//SCRIVE I DATI NEL FILE SSE CLIENT_OPEN CONTIENE CFD
 int resize_cache (int dim_data); //POLITICA DI SOSTITUZIONE IN CACHE FIFO 
 long isNumber(const char* s);
-//TODO : VEDERE SE POSSIBILE NON ELIMINARE I FILE APERTI DA CLIENT -> ELIMINA IL PIU' VECCHIO NON APERTO -> SE TUTTI APERTI ALLORA ELIMINA IL PIU' VECCHIO 
+void freeList(node ** head);
+void freeCache();
 
 int main (int argc, char * argv[]) {
 
@@ -89,9 +90,9 @@ int main (int argc, char * argv[]) {
     }
 
     //VALORI DI DEFAULT
-    int num_thread = 2;
-    max_files = 5; 
-    max_dim = 200;   
+    int num_thread = 1;
+    max_files = 10000; 
+    max_dim = 134217728;   
     char * socket_name = "/tmp/LSOfilestorage.sk";
 
     //parsing file config.txt -- attributo=valore -- se trovo errore uso attributi di default 
@@ -196,11 +197,11 @@ int main (int argc, char * argv[]) {
 
     //------THREAD POOL--------//
     pthread_t * thread_pool = malloc(num_thread*sizeof(pthread_t));
-    pthread_t t;
     int err;
+    //pthread_t t;
     for (i=0;i<num_thread;i++) {
-        SYSCALL_PTHREAD(err,pthread_create(&t,NULL,worker,(void*)(&pip[1])),"create");
-        thread_pool[i] = t;  
+        SYSCALL_PTHREAD(err,pthread_create(&thread_pool[i],NULL,worker,(void*)(&pip[1])),"create");
+        //thread_pool[i]=t; 
     }
     //------------------------//
 
@@ -318,11 +319,14 @@ int main (int argc, char * argv[]) {
     for (int i=0;i<num_thread;i++) {
         insertNode(&coda,-1);
     }
+    for (i=0;i<num_thread;i++) {
+        pthread_join(thread_pool[i],NULL);
+    }
     close(sfd);
     remove("/tmp/mysock");
-    free(coda);
+    freeList(&coda);
     free(thread_pool);
-    free(cache_file);
+    freeCache();
 
     return 0;
 }
@@ -335,11 +339,14 @@ void * worker (void * arg) {
     int new = 1;
     int cfd;
     while (1) {
-        char * request = malloc(DIM_MSG);
+        char request [DIM_MSG];
+        request[0] = '\0';
         //PRELEVA UN CLIENT DALLA CODA
         cfd = removeNode(&coda);
-        if (cfd==-1) break;
-        
+        if (cfd==-1) {
+            //free(request);
+            break;
+        }
         //SERVO IL CLIENT
         int len;
         int fine; //FLAG COMUNICATO AL MASTER PER SAPERE QUANDO TERMINA IL CLIENT
@@ -349,6 +356,7 @@ void * worker (void * arg) {
             SYSCALL(write(pfd,&fine,sizeof(fine)),"THREAD : pipe write");
         }else if (len == -1) {
             perror("THREAD : READ1");
+            //free(request);
             exit(EXIT_FAILURE);
         }else{
             printf ("From Client : %s\n",request);
@@ -360,13 +368,11 @@ void * worker (void * arg) {
             eseguiRichiesta(request,cfd,pfd);
             
             //RITORNA IL CLIENT AL MANAGER TRAMITE LA PIPE
-            SYSCALL(write(pfd,&cfd,sizeof(cfd)),"THREAD : pipe write");
-            fine = 0;
-            SYSCALL(write(pfd,&fine,sizeof(fine)),"THREAD : pipe write");
+            //SYSCALL(write(pfd,&cfd,sizeof(cfd)),"THREAD : pipe write");
+            //fine = 0;
+            //SYSCALL(write(pfd,&fine,sizeof(fine)),"THREAD : pipe write");
     
         }
-
-        //free(request);
     }
     close(cfd);
     printf("Closing worker\n");
@@ -378,6 +384,7 @@ void * worker (void * arg) {
 //REQUEST CONTIENE : COMANDO,ARGOMENTI SEPARATI DA VIRGOLA
 void eseguiRichiesta (char * request, int cfd, int pfd) {
     char response[DIM_MSG];
+    memset(response,0,DIM_MSG);
     char * token;
     token = strtok(request,",");
 
@@ -386,7 +393,8 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
 
         //ARGOMENTI 
         token = strtok(NULL,",");
-        char * path = token;
+        char path[PATH_MAX];
+        strcpy(path,token);
         token = strtok(NULL,",");
         int flag = atoi(token);
 
@@ -437,9 +445,10 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
         
         //ARGOMENTI
         token = strtok(NULL,",");
-        char * path = token;
+        char path[PATH_MAX];
+        strcpy(path,token);
 
-        //INVIA AL CLIENT PERMESSO PER INVIARE FILE O ERRORE
+        //INVIA AL CLIENT PERMESSO PER INVIARE FILE
         sprintf(response,"0");
         SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
             
@@ -451,7 +460,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
         int size_file = atoi(buf1);
 
         //E IL FILE
-        char * buf2 = malloc ((size_file+1)*sizeof(char));
+        char buf2 [size_file+1];
         if (buf2==NULL) {
             fprintf(stderr,"malloc fail\n");
             exit(EXIT_FAILURE);
@@ -460,13 +469,15 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
         printf("FROM CLIENT FILE : %s\n",buf2);
         fflush(stdout);
         //INSERISCO I DATI NELLA CACHE 
-        char * result = malloc(DIM_MSG*sizeof(char));
-        if (writeData(path, buf2,cfd) == -1) {
+        char result [DIM_MSG];
+        memset(result,0,DIM_MSG);
+        if (writeData(path, buf2, size_file+1, cfd) == -1) {
             sprintf(result,"-1,%d",EPERM);
         } else {
             sprintf(result,"0");
         }
-        SYSCALL(write(cfd,result,sizeof(response)),"THREAD : socket write");
+        SYSCALL(write(cfd,result,sizeof(result)),"THREAD : socket write");
+        free(buf1);
 
     } else if (strcmp(token,"appendToFile")==0) {
         //appendToFile,pathname,buf,size
@@ -551,7 +562,8 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
         //INVIO NUMERO DI FILE AL CLIENT
         if (n_richiesti <= 0 || n_richiesti > num_files) n_richiesti=num_files;
         printf("RICHIESTI=%d DISPONIBILI=%d\n",n_richiesti,num_files);
-        char * nbuf = malloc(DIM_MSG*sizeof(char));
+        char nbuf[DIM_MSG];
+        memset(nbuf,0,DIM_MSG);
         sprintf(nbuf,"%d",n_richiesti);
         SYSCALL(write(cfd,nbuf,sizeof(nbuf)),"THREAD : WRITE 1");
         
@@ -568,7 +580,8 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
         for (int i=0;i<n_richiesti;i++) {
             
             //INVIA PATH AL CLIENT
-            char * path = malloc(DIM_MSG*sizeof(char));
+            char path [PATH_MAX];
+            memset(path,0,PATH_MAX);
             //ERR MALLOC
             sprintf(path,"%s",curr->path);
             SYSCALL(write(cfd,path,DIM_MSG),"THREAD : WRITE 2");
@@ -582,7 +595,8 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
             //if (strcmp(conf1,"0")!=0) return;
 
             //INVIO SIZE 
-            char * ssize = malloc(DIM_MSG*sizeof(char));
+            char ssize [DIM_MSG];
+            memset(ssize,0,DIM_MSG);
             sprintf(ssize,"%ld",strlen(curr->data));
             SYSCALL(write(cfd,ssize,sizeof(ssize)),"THREAD : WRITE 3");
 
@@ -620,7 +634,14 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
         //ENOSYS
         sprintf(response,"-1,%d",ENOSYS);
         SYSCALL(write(cfd,response,sizeof(response)),"THREAD : socket write");
-    }    
+    }
+
+    //RITORNA IL CLIENT AL MANAGER TRAMITE LA PIPE
+    SYSCALL(write(pfd,&cfd,sizeof(cfd)),"THREAD : pipe write");
+    int fine;
+    fine = 0;
+    SYSCALL(write(pfd,&fine,sizeof(fine)),"THREAD : pipe write");
+
 }
 
 //--------UTILITY PER GESTIONE SERVER----------//
@@ -642,6 +663,7 @@ void insertNode (node ** list, int data) {
     SYSCALL_PTHREAD(err,pthread_cond_signal(&not_empty),"Signal coda");
     //RILASCIO LOCK
     pthread_mutex_unlock(&lock_coda);
+    
 }
 
 //RIMOZIONE IN CODA 
@@ -665,6 +687,7 @@ int removeNode (node ** list) {
     data = curr->data;
     //LO RIMUOVO
     if (prev == NULL) {
+        free(curr);
         *list = NULL;
     }else{
         prev->next = NULL;
@@ -745,7 +768,7 @@ int addFile (char * path, int flag, int cfd) {
             printf("ADDFILE : CREO FILE\n");
             fflush(stdout);
             file * f = malloc(sizeof(file));
-            f->path = path;
+            strcpy(f->path,path);
             f->data = NULL;
             f->client_write = cfd;
             f->client_open = NULL;
@@ -888,7 +911,7 @@ int removeClient (char * path, int cfd) {
     return res;
 }
 
-int writeData(char * path, char * data, int cfd) {
+int writeData(char * path, char * data, int size, int cfd) {
 
     int res=0;
     int err;
@@ -911,8 +934,8 @@ int writeData(char * path, char * data, int cfd) {
                     if (resize_cache(strlen(data)) == -1) res = -1;  
                 }
                 if (res==0) {
-                    curr->data = malloc(sizeof(data));
-                    curr->data = data;
+                    curr->data = malloc(size*sizeof(char));
+                    strcpy(curr->data,data);
                     curr->client_write = -1; 
                     scritto=1;
                     dim_byte = dim_byte + strlen(data);
@@ -922,6 +945,10 @@ int writeData(char * path, char * data, int cfd) {
     }
 
     if (trovato==0 || scritto==0) res=-1;
+    printf("path=%s\n",path);
+    printf("len=%ld\n",strlen(path));
+    printf("trovato=%d scritto=%d\n",trovato,scritto);
+    printf("data : %s\n",data);
 
     pthread_mutex_unlock(&lock_cache);
 
@@ -984,7 +1011,7 @@ void printFile () {
     fflush(stdout);
     file * curr = cache_file;
     while (curr!=NULL) {
-        printf("%s ",curr->path);
+        printf("%s len=%ld ",curr->path,strlen(curr->path));
         printf("WRITE:%d ",curr->client_write);
         printClient(curr->client_open);
         printf("\n");
@@ -1064,5 +1091,29 @@ long isNumber(const char* s) {
    long val = strtol(s, &e, 0);
    if (e != NULL && *e == (char)0) return val; 
    return -1;
+}
+
+void freeList(node ** head) {
+    node* tmp;
+    node * curr = *head;
+    while (curr != NULL) {
+       tmp = curr;
+       curr = curr->next;
+       free(tmp);
+    }
+    *head = NULL;
+}
+
+void freeCache () {
+    file * tmp;
+    file * curr = cache_file;
+    while (curr!=NULL) {
+        tmp=curr;
+        freeList(&(curr->client_open));
+        free(curr->data);
+        curr = curr->next;
+        free(tmp);
+    }
+    cache_file=NULL;
 }
 
