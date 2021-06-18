@@ -139,8 +139,7 @@ int main (int argc, char * argv[]) {
                 break;
 
             case '?':
-                printf("l'opzione '-%c' non e' gestita\n", optopt);
-                fprintf (stderr,"%s -h per vedere la lista delle operazioni supportate\n",argv[0]);
+                fprintf (stderr,"%s -h per la lista dei comandi\n",argv[0]);
                 break;
 
             case ':':
@@ -157,31 +156,37 @@ int main (int argc, char * argv[]) {
     //CONTROLLA SE PRESENTI OPZIONI -h -p -t -d -f
     char * arg; 
     if (containCMD(&listCmd,"h",&arg)==1) {
-        if (flag_stampa==1) printf("Operazione : -h (help message)\n");
-        printf("Operazioni supportate : \n-h\n-f filename\n-w dirname[n=0]\n-W file1[,file2]\n-r file1[,file2]\n-R [n=0]\n-d dirname\n-t time\n-c file1[,file2]\n-p\n");
+        printf("Operazioni supportate : \n-h\n-f filename\n-w dirname[,n=0]\n-W file1[,file2]\n-r file1[,file2]\n-R [n=0]\n-d dirname\n-t time\n-c file1[,file2]\n-p\n");
+        if (listCmd!=NULL) free(listCmd);
+        if (resolvedPath!=NULL) free(resolvedPath);
+        return 0;
     }
     if (containCMD(&listCmd,"p",&arg)==1) {
         flag_stampa=1;
-        printf("Operazione : -p (abilta stampe)\n");
+        printf("Operazione : -p (abilta stampe) Esito : positivo\n");
     }
     if (containCMD(&listCmd,"t",&arg)==1) {
-        int tms=0;
         if ((tms=isNumber(arg))==-1) {
-            printf("L'opzione -t vuole un numero\n");
+            if (flag_stampa==1) printf("Operazione : -t (ritardo) Tempo : %s Esito : negativo\n",arg);
+            printf("L'opzione -t richiede un numero come argomento\n");
         }else{
-            printf("Opzione -t con argomento %d\n",tms);
+            if (flag_stampa==1) printf("Operazione : -t (ritardo) Tempo : %d Esito : positivo\n",tms);
         }
     }
     if (containCMD(&listCmd,"d",&arg)==1) {
-        printf("Opzione -d con argomento %s\n",arg);
+        if (flag_stampa==1) printf("Operazione : -d (salva file) Directory : %s Esito : positivo\n",arg);
         dfnd = 1;
     }
     if (containCMD(&listCmd,"f",&arg)==1) {
-        if (flag_stampa==1) printf("Operazione : -f (connessione) - file : %s\n",farg);
         struct timespec ts;
         clock_gettime(CLOCK_REALTIME,&ts);
         ts.tv_sec = ts.tv_sec+60;
-        APICALL(openConnection(farg,1000,ts),"openConnection");
+        if (openConnection(farg,1000,ts)==-1) {
+            if (flag_stampa==1) printf("Operazione : -f (connessione) File : %s Esito : negativo\n",arg);
+            perror("Errore apertura connessione");
+        }else{
+            if (flag_stampa==1) printf("Operazione : -f (connessione) File : %s Esito : positivo\n",arg);
+        } 
     }
 
     //printList(listCmd);
@@ -194,7 +199,6 @@ int main (int argc, char * argv[]) {
 
         if (strcmp(curr->cmd,"w")==0) {
 
-            printf("Opzione -w con argomento %s\n",curr->arg);
             char * save1 = NULL;
             char * token1 = strtok_r(curr->arg,",",&save1);
                 
@@ -203,6 +207,7 @@ int main (int argc, char * argv[]) {
 
             struct stat info_dir;
             if (stat(namedir,&info_dir)==-1) {
+                if (flag_stampa==1) printf("Operazione : -w (scrivi directory) Directory : %s Esito : negativo\n",namedir);
                 printf("Directory %s non esiste\n",namedir);
             }else{
 
@@ -216,20 +221,23 @@ int main (int argc, char * argv[]) {
                     if (n>0) {
                         //TODO : SCRIVI I FILE DI NAMEDIR
                         listDir(namedir,n);
+                        if (flag_stampa==1) printf("Operazione : -w (scrivi directory) Directory : %s Esito : positivo\n",namedir);
                     }else if (n==0) {
                         listDir(namedir,INT_MAX);
+                        if (flag_stampa==1) printf("Operazione : -w (scrivi directory) Directory : %s Esito : positivo\n",namedir);
                     }else{
+                        if (flag_stampa==1) printf("Operazione : -w (scrivi directory) Directory : %s Esito : negativo\n",namedir);
                         printf("Utilizzo : -w dirname[,n]\n");
                     }
 
                 }else{
+                    if (flag_stampa==1) printf("Operazione : -w (scrivi directory) Directory : %s Esito : negativo\n",namedir);
                     printf("%s non e' una directory\n",namedir);
                 }
             }
 
         }else if (strcmp(curr->cmd,"W")==0) {
 
-            printf("Opzione -W con argomento %s\n",curr->arg);
             char * save2 = NULL;
             char * token2 = strtok_r(curr->arg,",",&save2);
 
@@ -238,31 +246,37 @@ int main (int argc, char * argv[]) {
                 //per ogni file passato come argomento esegui open-write-close
 
                 if ((resolvedPath = realpath(file,resolvedPath))==NULL) {
+                    if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file);
                     printf("Il file %s non esiste\n",file);
-                    perror("realpath");
                 }else{
 
-                    if (openFile(resolvedPath,1)==-1) perror("openFile");
-                    else {
+                    if (openFile(resolvedPath,1)==-1) {
+                        if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file);
+                        perror("Errore apertura file");
+                    } else {
 
                         //WRITE FILE
-                        if (writeFile(resolvedPath,NULL)==-1) perror("writeFile");
-                        else {  
+                        if (writeFile(resolvedPath,NULL)==-1) {
+                            if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file);
+                            perror("Errore scrittura file");
+                        } else {  
 
-                            if (closeFile(resolvedPath)==-1) perror("closeFile");
+                            if (closeFile(resolvedPath)==-1) {
+                                if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file); 
+                                perror("Errore chiusura file");
+                            }else{
+                                if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : positivo\n",file); 
+                            }
+
                         }
-
                     }
                 }
-
                 token2 = strtok_r(NULL,",",&save2);
 
             }
 
 
         }else if (strcmp(curr->cmd,"r")==0) {
-
-            printf("Opzione -r con argomento %s\n",curr->arg);
 
             char * save3 = NULL;
             char * token3 = strtok_r(curr->arg,",",&save3);
@@ -271,44 +285,43 @@ int main (int argc, char * argv[]) {
                 char * file = token3;
                 //per ogni file passato come argomento esegui open-write-close
 
-                if ((resolvedPath = realpath(file,resolvedPath))==NULL) {
-                    printf("Il file %s non esiste\n",file);
-                    perror("realpath");
+                if (openFile(file,0)==-1) {
+                    if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : negativo\n",file); 
+                    perror("Errore apertura file");
                 }else{
-                    if (openFile(resolvedPath,0)==-1) {
-                        perror("openFile");
-                    }else{
-                        //READ FILE
-                        char * buf;
-                        size_t size;
-                        if (readFile(resolvedPath,(void**)&buf,&size)==-1) {
-                            perror("writeFile");
-                        } else {
-                            if (dfnd==1) {
-                                //SALVA IN DIR
-                                char path[PATH_MAX];
-                                char * file_name = basename(resolvedPath);
-                                sprintf(path,"%s/%s",dir,file_name);
-                                printf("FILE : %s\n",path);
-                                
-                                //CREA DIR SE NON ESISTE 
-                                printf("DIRECTORY : %s\n",dir);
-                                mkdir_p(dir);
-                                //CREA FILE SE NON ESISTE
-                                FILE* of;
-                                of = fopen(path,"w");
-                                if (of==NULL) {
-                                    printf("Errore aprendo il file\n");
-                                } else {
-                                    fprintf(of,"%s",buf);
-                                    fclose(of);
-                                }
+                    //READ FILE
+                    char * buf;
+                    size_t size;
+                    if (readFile(file,(void**)&buf,&size)==-1) {
+                        if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : negativo\n",file); 
+                        perror("Errore lettura file");
+                    } else {
+                        if (dfnd==1) {
+                            //SALVA IN DIR
+                            char path[PATH_MAX];
+                            char * file_name = basename(resolvedPath);
+                            sprintf(path,"%s/%s",dir,file_name);
+                            //printf("FILE : %s\n",path);
+                            
+                            //CREA DIR SE NON ESISTE 
+                            //printf("DIRECTORY : %s\n",dir);
+                            mkdir_p(dir);
+                            //CREA FILE SE NON ESISTE
+                            FILE* of;
+                            of = fopen(path,"w");
+                            if (of==NULL) {
+                                printf("Errore salvataggio file\n");
+                            } else {
+                                fprintf(of,"%s",buf);
+                                fclose(of);
                             }
-                            printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
-                            if (closeFile(resolvedPath)==-1) {
-                                perror("closeFile");
-                                break;
-                            }
+                        }
+                        //printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
+                        if (closeFile(file)==-1) {
+                            if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : negativo\n",file); 
+                            perror("Errore chiusura file");
+                        }else{
+                            if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : positivo\n",file); 
                         }
                     }
                 }
@@ -319,36 +332,39 @@ int main (int argc, char * argv[]) {
         }else if (strcmp(curr->cmd,"R")==0) {
 
             int val;
-            if ((val = isNumber(curr->arg))==-1) printf("L'opzione -R vuole un numero come argomento\n");
-            else {
-                printf("Opzione -R con argomento %s\n",curr->arg);
+            if ((val = isNumber(curr->arg))==-1) {
+                if (flag_stampa==1) printf("Operazione : -R (leggi N file) Esito : negativo\n"); 
+                printf("L'opzione -R vuole un numero come argomento\n");
+            } else {
                 int n;
-    
                 if ((n=readNFiles(val,dir))==-1) {
-                    perror("readNFiles");
+                    if (flag_stampa==1) printf("Operazione : -R (leggi N file) Esito : negativo\n"); 
+                    perror("Errore lettura file");
                 }else{
-                    printf("FILE LETTI : %d\n",n);
+                    if (flag_stampa==1) printf("Operazione : -R (leggi N file) Esito : positivo File Letti : %d\n",n); 
                 }
             }
 
         } else if (strcmp(curr->cmd,"c")==0) {
             
-            printf("Opzione -c con argomento %s\n",curr->arg);
             char * save4 = NULL;
             char * token4 = strtok_r(curr->arg,",",&save4);
             
             while(token4) {
                 char * file = token4;
                 if ((resolvedPath = realpath(file,resolvedPath))==NULL) {
+                    if (flag_stampa==1) printf("Operazione : -c (rimuovi file) File : %s Esito : negativo\n",file); 
                     printf("Il file %s non esiste\n",file);
-                    perror("realpath");
                 }else{
                     //per ogni file passato come argomento esegui close
                     if (removeFile(resolvedPath)==-1) {
-                        perror("removeFile");
+                        if (flag_stampa==1) printf("Operazione : -c (rimuovi file) File : %s Esito : negativo\n",file);
+                        perror("Errore rimozione file");
+                    }else{
+                        if (flag_stampa==1) printf("Operazione : -c (rimuovi file) File : %s Esito : positivo\n",file);
                     }
                 }
-                //printf("TOKEN\n");
+                
                 token4 = strtok_r(NULL,",",&save4);
             }
 
@@ -383,7 +399,7 @@ void listDir (char * dirname, int n) {
 		return;
 	}
 
-    printf ("Directory: %s\n",dirname);
+    //printf ("Directory: %s\n",dirname);
 	while ((entry = readdir(dir))!=NULL && (num_files < n)) {
         
 		char path[100];
@@ -405,16 +421,15 @@ void listDir (char * dirname, int n) {
             //E' UN FILE --> OPEN,WRITE,CLOSE
             char * resolvedPath = NULL;
             if ((resolvedPath = realpath(path,resolvedPath))==NULL) {
-                printf("Il file %s non esiste\n",path);
                 perror("realpath");
             }else{
-                if (openFile(resolvedPath,1)==-1) perror("openFile");
+                if (openFile(resolvedPath,1)==-1) perror("Errore apertura file");
                 else {
                     num_files++;
                     //WRITE FILE
-                    if (writeFile(resolvedPath,NULL)==-1) perror("writeFile");
+                    if (writeFile(resolvedPath,NULL)==-1) perror("Errore scrittura file");
                     else {  
-                        if (closeFile(resolvedPath)==-1) perror("closeFile");
+                        if (closeFile(resolvedPath)==-1) perror("Errore chiusura file");
                     }
                 }
                 free(resolvedPath);

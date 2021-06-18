@@ -10,6 +10,7 @@
 #include <sys/un.h>
 #include <ctype.h>
 #include <assert.h>
+#include <limits.h>
 
 #define UNIX_PATH_MAX 108 /* man 7 unix */
 #define DIM_MSG 100 
@@ -73,19 +74,101 @@ void printClient (node * list); //STAMPA LISTA DI CLIENT (FILE DESCRIPTOR SOCKET
 int fileOpen(node * list, int cfd);
 int appendData (char * path, char * data, int cfd);//SCRIVE I DATI NEL FILE SSE CLIENT_OPEN CONTIENE CFD
 int resize_cache (int dim_data); //POLITICA DI SOSTITUZIONE IN CACHE FIFO 
+long isNumber(const char* s);
 //TODO : VEDERE SE POSSIBILE NON ELIMINARE I FILE APERTI DA CLIENT -> ELIMINA IL PIU' VECCHIO NON APERTO -> SE TUTTI APERTI ALLORA ELIMINA IL PIU' VECCHIO 
 
-int main () {
+int main (int argc, char * argv[]) {
 
     int i;
 
-    //parametri server da settare con il config.txt
-    int num_thread = 5;
-    max_files = 5; //CONTROLLARE QUANDO AGGIUNGO FILE CON SUCCESSO 
-    max_dim = 200;  //CONTROLLARE QUANDO SCRIVO DATI 
+    char * path_config = "config.txt";
+    if (argc==3) {
+        if (strcmp(argv[1],"-s")==0) {
+            path_config = argv[2];
+        }
+    }
+
+    //VALORI DI DEFAULT
+    int num_thread = 2;
+    max_files = 5; 
+    max_dim = 200;   
     char * socket_name = "/tmp/LSOfilestorage.sk";
 
-    //TODO : parsing file config.txt -- attributo=valore 
+    //parsing file config.txt -- attributo=valore -- se trovo errore uso attributi di default 
+    char str [200];
+    FILE * fp;
+    fp = fopen(path_config,"r");
+    if (fp == NULL) {
+        perror("Errore config file");
+        exit(EXIT_FAILURE);
+    }
+    
+    char * token;
+    char arg [100];
+    char val [100];
+    while (fgets(str,200,fp)!=NULL) {
+        
+        if (str[0]!='\n') {
+
+            int nt;
+            nt = sscanf (str,"%[^=]=%s",arg,val);
+            if (nt!=2) {
+                printf("Errore config file : formato non corretto\n");
+                printf ("Server avviato con parametri di DEFAULT\n");
+                break;
+            }
+
+            if (arg!=NULL) {
+                if (strcmp(arg,"num_thread")==0) {
+                   
+                    if (val!=NULL) { 
+                        int n;
+                        if ((n=isNumber(val))==-1 || n<=0) {
+                            printf("Errore config file : num_thread richiede un numero>0 come valore\n");
+                            printf ("Server avviato con parametri di DEFAULT\n");
+                            break;
+                        }else{
+                            num_thread = n;
+                        }
+                    }
+                } else if (strcmp(arg,"max_files")==0) {
+                    
+                    if (val!=NULL) { 
+                        int n;
+                        if ((n=isNumber(val))==-1 || n<=0) {
+                            printf("Errore config file : max_files richiede un numero>0 come valore\n");
+                            printf ("Server avviato con parametri di DEFAULT\n");
+                            break;
+                        }else{
+                            max_files = n;
+                        }
+                    }
+                } else if (strcmp(arg,"max_dim")==0) {
+                    
+                    if (val!=NULL) { 
+                        int n;
+                        if ((n=isNumber(val))==-1 || n<=0) {
+                            printf("Errore config file : max_dim richiede un numero>0 come valore\n");
+                            printf ("Server avviato con parametri di DEFAULT\n");
+                            break;
+                        }else{
+                            max_dim = n;
+                        }
+                    }
+                } else if (strcmp(arg,"socket_name")==0) {
+                    
+                    if (val!=NULL) {
+                        strcpy(socket_name,val);
+                    }
+                }
+            } 
+            
+        }
+        
+    }
+    fclose(fp);
+
+    printf("socket_name:%s num_thread:%d max_files:%d max_dim:%d\n",socket_name,num_thread,max_files,max_dim); 
 
     //--------GESTIONE SEGNALI---------//
     struct sigaction s;
@@ -974,5 +1057,12 @@ int resize_cache (int dim_data) {
     if (*list == NULL && (dim_byte + dim_data > max_dim)) return -1; //DIM_FILE > MAX DIM CACHE
 
     return 0; 
+}
+
+long isNumber(const char* s) {
+   char* e = NULL;
+   long val = strtol(s, &e, 0);
+   if (e != NULL && *e == (char)0) return val; 
+   return -1;
 }
 

@@ -47,7 +47,7 @@ int openConnection(const char* sockname, int msec,const struct timespec abstime)
     struct timespec ct;
     while (connect(sc,(struct sockaddr*)&sa,sizeof(sa)) == -1 && compare_time(ct,abstime)==-1) {
         msleep(msec);
-        printf("Riprovo\n");
+        //printf("Riprovo\n");
     }
 
     if (compare_time(ct,abstime)>0) {
@@ -96,7 +96,7 @@ int openFile(const char* pathname, int flags) {
     SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
     SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
-    printf("From Server : %s\n",response);
+    //printf("From Server : %s\n",response);
 
     char * t;
     t = strtok(response,",");
@@ -176,7 +176,7 @@ int writeFile(const char* pathname, const char* dirname) {
     //RISPOSTA SERVER 
     char * result = malloc(DIM_MSG*sizeof(char));
     SYSCALL(read(sc,result,DIM_MSG),EREMOTEIO);
-    printf("From Server : %s\n",response);
+    //printf("From Server : %s\n",response);
 
     char * t1;
     t1 = strtok(result,",");
@@ -206,7 +206,7 @@ int closeFile(const char* pathname) {
     SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
     SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
-    printf("From Server : %s\n",response);
+    //printf("From Server : %s\n",response);
 
     char * t;
     t = strtok(response,",");
@@ -234,7 +234,7 @@ int removeFile(const char* pathname) {
     SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
     SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
-    printf("From Server : %s\n",response);
+    //printf("From Server : %s\n",response);
 
     char * t;
     t = strtok(response,",");
@@ -262,7 +262,7 @@ int appendToFile(const char* pathname, void* buf,size_t size, const char* dirnam
     SYSCALL(write(sc,buffer,DIM_MSG),EREMOTEIO);
 
     SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
-    printf("From Server : %s\n",response);
+    //printf("From Server : %s\n",response);
 
     char * t;
     t = strtok(response,",");
@@ -286,7 +286,7 @@ int appendToFile(const char* pathname, void* buf,size_t size, const char* dirnam
     //RISPOSTA SERVER 
     char * result = malloc(DIM_MSG*sizeof(char));
     SYSCALL(read(sc,result,DIM_MSG),EREMOTEIO);
-    printf("From Server : %s\n",response);
+    //printf("From Server : %s\n",response);
 
     char * t1;
     t1 = strtok(result,",");
@@ -317,7 +317,7 @@ int readFile(const char* pathname, void** buf, size_t* size) {
 
     //RICEVO SIZE FILE
     SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
-    printf("From Server : %s\n",response);
+    //printf("From Server : %s\n",response);
     
     char * t;
     t = strtok(response,",");
@@ -348,7 +348,7 @@ int readFile(const char* pathname, void** buf, size_t* size) {
     *buf = malloc(size_file*sizeof(char));
     *buf = file;
 
-    printf("From Server : %s\n",file);
+    //printf("From Server : %s\n",file);
     
     return 0;
 
@@ -365,7 +365,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
     
     if (dirname!=NULL) {
         //CREA DIR SE NON ESISTE 
-        printf("DIRECTORY : %s\n",dirname);
+        //printf("DIRECTORY : %s\n",dirname);
         mkdir_p(dirname);
     }
 
@@ -386,7 +386,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         return -1;
     } 
     SYSCALL(read(sc,bufrec,DIM_MSG),EREMOTEIO);
-    printf("From Server : NUM FILE = %s\n",bufrec);
+    //printf("From Server : NUM FILE = %s\n",bufrec);
     
     char * t = strtok(bufrec,",");
     if (strcmp(t,"-1")==0) { //ERRORE DAL SERVER
@@ -416,7 +416,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
             return -1;
         }
         SYSCALL(read(sc,path,DIM_MSG),EREMOTEIO);
-        printf("From Server : PATH = %s\n",path);
+        //printf("From Server : PATH = %s\n",path);
         
         
         char *t1 = strtok(path,",");
@@ -446,7 +446,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
             return -1;
         }
         SYSCALL(read(sc,ssize,DIM_MSG),EREMOTEIO);
-        printf("From Server : SIZE = %s\n",ssize);
+        //printf("From Server : SIZE = %s\n",ssize);
         
         
         char *t2 = strtok(ssize,",");
@@ -478,7 +478,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
             return -1;
         }
         SYSCALL(read(sc,fbuf,size_file),EREMOTEIO);
-        printf("From Server : FILE = %s\n",fbuf);
+        //printf("From Server : FILE = %s\n",fbuf);
         
         
         char *t3 = strtok(fbuf,",");
@@ -499,7 +499,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
             char sp[PATH_MAX];
             char * file_name = basename(path);
             sprintf(sp,"%s/%s",dirname,file_name);
-            printf("FILE : %s\n",sp);
+            //printf("FILE : %s\n",sp);
             //CREA FILE SE NON ESISTE
             FILE* of;
             of = fopen(sp,"w");
@@ -510,7 +510,7 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
                 fclose(of);
             }
         }
-        printf("PATH=%s SIZE=%d CONTENUTO=%s\n",path,size_file,fbuf);
+        //printf("PATH=%s SIZE=%d CONTENUTO=%s\n",path,size_file,fbuf);
         
         free(path);
         free(ssize);
@@ -564,26 +564,22 @@ int compare_time (struct timespec a, struct timespec b) {
     else return -1;
 }
 
-int mkdir_p(const char *path)
-{
-    /* Adapted from http://stackoverflow.com/a/2336245/119527 */
+int mkdir_p(const char *path) {
+    
     const size_t len = strlen(path);
     char _path[PATH_MAX];
     char *p; 
 
     errno = 0;
 
-    /* Copy string so its mutable */
     if (len > sizeof(_path)-1) {
         errno = ENAMETOOLONG;
         return -1; 
     }   
     strcpy(_path, path);
 
-    /* Iterate the string */
     for (p = _path + 1; *p; p++) {
         if (*p == '/') {
-            /* Temporarily truncate */
             *p = '\0';
 
             if (mkdir(_path, S_IRWXU) != 0) {
