@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
-#include "api_server.h"
+#include "../includes/api_server.h"
 #include <errno.h>
 #include <dirent.h>
 #include <sys/types.h>
@@ -308,7 +308,8 @@ int main (int argc, char * argv[]) {
                         if (dfnd==1) {
                             //SALVA IN DIR
                             char path[PATH_MAX];
-                            char * file_name = basename(resolvedPath);
+                            memset(path,0,PATH_MAX);
+                            char * file_name = basename(file);
                             sprintf(path,"%s/%s",dir,file_name);
                             //printf("FILE : %s\n",path);
                             
@@ -407,7 +408,7 @@ void listDir (char * dirname, int n) {
     //printf ("Directory: %s\n",dirname);
 	while ((entry = readdir(dir))!=NULL && (num_files < n)) {
         
-		char path[100];
+		char path[PATH_MAX];
 		snprintf(path, sizeof(path), "%s/%s", dirname, entry->d_name); 
 
         struct stat info;

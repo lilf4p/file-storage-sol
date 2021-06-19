@@ -1,0 +1,3 @@
+max_files=10000
+max_dim=134217728
+num_thread=1

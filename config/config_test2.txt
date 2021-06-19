@@ -1,0 +1,3 @@
+num_thread=4
+max_dim=1048576
+max_files=10

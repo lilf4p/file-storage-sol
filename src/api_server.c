@@ -1,4 +1,4 @@
-//Implementazione delle funzioni dell'api per comunicare con il server 
+//Implementazione delle funzioni dell'api per comunicare con il server. 
 
 #include <stdio.h>
 #include <sys/socket.h>
@@ -22,7 +22,7 @@
 
 int connesso = 0;//FLAG PER SAPERE SE MI SONO CONNESSO O NO 
 int sc; //SOCKET FD
-char *socket_name;
+char socket_name[PATH_MAX];
 char response[DIM_MSG];
 
 //FUNZIONI DI UTILITA'
@@ -58,7 +58,7 @@ int openConnection(const char* sockname, int msec,const struct timespec abstime)
     SYSCALL(read(sc,response,DIM_MSG),EREMOTEIO);
     printf("%s\n",response);
     connesso = 1;
-    socket_name = sockname;
+    strcpy(socket_name,sockname);
     return 0;
 
 }
