@@ -249,26 +249,35 @@ int main (int argc, char * argv[]) {
                     if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file);
                     printf("Il file %s non esiste\n",file);
                 }else{
+                    struct stat info_file;
+                    stat(resolvedPath,&info_file);
 
-                    if (openFile(resolvedPath,1)==-1) {
-                        if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file);
-                        perror("Errore apertura file");
-                    } else {
+                    if (S_ISREG(info_file.st_mode)) {
 
-                        //WRITE FILE
-                        if (writeFile(resolvedPath,NULL)==-1) {
+                        if (openFile(resolvedPath,1)==-1) {
                             if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file);
-                            perror("Errore scrittura file");
-                        } else {  
+                            perror("Errore apertura file");
+                        } else {
 
-                            if (closeFile(resolvedPath)==-1) {
-                                if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file); 
-                                perror("Errore chiusura file");
-                            }else{
-                                if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : positivo\n",file); 
+                            //WRITE FILE
+                            if (writeFile(resolvedPath,NULL)==-1) {
+                                if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file);
+                                perror("Errore scrittura file");
+                            } else {  
+
+                                if (closeFile(resolvedPath)==-1) {
+                                    if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file); 
+                                    perror("Errore chiusura file");
+                                }else{
+                                    if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : positivo\n",file); 
+                                }
+
                             }
-
                         }
+
+                    } else {
+                        if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file);
+                        printf("%s non e' un file regolare\n",file);
                     }
                 }
                 token2 = strtok_r(NULL,",",&save2);
@@ -352,17 +361,13 @@ int main (int argc, char * argv[]) {
             
             while(token4) {
                 char * file = token4;
-                if ((resolvedPath = realpath(file,resolvedPath))==NULL) {
-                    if (flag_stampa==1) printf("Operazione : -c (rimuovi file) File : %s Esito : negativo\n",file); 
-                    printf("Il file %s non esiste\n",file);
+                
+                //per ogni file passato come argomento esegui close
+                if (removeFile(file)==-1) {
+                    if (flag_stampa==1) printf("Operazione : -c (rimuovi file) File : %s Esito : negativo\n",file);
+                    perror("Errore rimozione file");
                 }else{
-                    //per ogni file passato come argomento esegui close
-                    if (removeFile(resolvedPath)==-1) {
-                        if (flag_stampa==1) printf("Operazione : -c (rimuovi file) File : %s Esito : negativo\n",file);
-                        perror("Errore rimozione file");
-                    }else{
-                        if (flag_stampa==1) printf("Operazione : -c (rimuovi file) File : %s Esito : positivo\n",file);
-                    }
+                    if (flag_stampa==1) printf("Operazione : -c (rimuovi file) File : %s Esito : positivo\n",file);
                 }
                 
                 token4 = strtok_r(NULL,",",&save4);

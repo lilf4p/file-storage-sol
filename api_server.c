@@ -170,6 +170,10 @@ int writeFile(const char* pathname, const char* dirname) {
     sprintf(tmp,"%d",size_file);
     SYSCALL(write(sc,tmp,sizeof(tmp)),EREMOTEIO);
 
+    //CONFERMA DAL SERVER
+    char conf[DIM_MSG];
+    SYSCALL(read(sc,conf,DIM_MSG),EREMOTEIO);
+
     //INVIO FILE
     SYSCALL(write(sc,file_buffer,size_file+1),EREMOTEIO);
 
@@ -280,6 +284,10 @@ int appendToFile(const char* pathname, void* buf,size_t size, const char* dirnam
     sprintf(tmp,"%ld",size);
     SYSCALL(write(sc,tmp,sizeof(tmp)),EREMOTEIO);
 
+    //CONFERMA DAL SERVER
+    char conf[DIM_MSG];
+    SYSCALL(read(sc,conf,DIM_MSG),EREMOTEIO);
+
     //INVIO FILE
     SYSCALL(write(sc,buf,size+1),EREMOTEIO);
 
@@ -370,21 +378,14 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
     }
 
     //INVIA IL COMANDO AL SERVER 
-    char * bufsend = malloc(DIM_MSG*sizeof(char));
-    if (bufsend == NULL) {
-        errno = ENOTRECOVERABLE;
-        return -1;
-    }
+    char bufsend [DIM_MSG];
+    memset(bufsend,0,DIM_MSG);
     sprintf(bufsend, "readNFiles,%d",N);
     SYSCALL(write(sc,bufsend,DIM_MSG),EREMOTEIO);
 
     //RICEVE IL NUMERO DI FILE CHE IL SERVER INVIA
-    char * bufrec = malloc(DIM_MSG*sizeof(char));
-    if (bufrec == NULL) {
-        errno = ENOTRECOVERABLE;
-        free(bufsend);
-        return -1;
-    } 
+    char bufrec [DIM_MSG];
+    memset(bufrec,0,DIM_MSG);
     SYSCALL(read(sc,bufrec,DIM_MSG),EREMOTEIO);
     //printf("From Server : NUM FILE = %s\n",bufrec);
     
@@ -392,112 +393,70 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
     if (strcmp(t,"-1")==0) { //ERRORE DAL SERVER
         t = strtok(NULL,",");
         errno = atoi(t);
-        free(bufsend);
-        free(bufrec);
         return -1;
     }
     int nf = atoi(t);//NUMERO DI FILE CONCORDATO CON IL SERVER 
     int i=0;
     
     //CONFERMA AL SERVER 
-    char * buf0 = malloc(DIM_MSG*sizeof(char));
-    buf0="ok";
-    SYSCALL(write(sc,buf0,sizeof(buf0)),EREMOTEIO);
+    SYSCALL(write(sc,"ok",3),EREMOTEIO);
     
     //RICEVI N VOLTE PATH,SIZE,DATA
     for (i=0;i<nf;i++) {
-        printf("%d\n",i);
-
-        //RICEVO PATH
-        char * path = malloc (PATH_MAX*sizeof(char));
-        if (path == NULL) {
-            free(bufsend);
-            free(bufrec);
-            errno = ENOTRECOVERABLE;
-            return -1;
-        }
-        SYSCALL(read(sc,path,DIM_MSG),EREMOTEIO);
-        //printf("From Server : PATH = %s\n",path);
         
+        //RICEVO PATH
+        char path [PATH_MAX];
+        memset(path,0,PATH_MAX);
+        SYSCALL(read(sc,path,sizeof(path)),EREMOTEIO);
+        //printf("From Server : PATH = %s\n",path);
         
         char *t1 = strtok(path,",");
         if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
             t1 = strtok(NULL,",");
             errno = atoi(t1);
-            free(bufsend);
-            free(bufrec);
-            free(path);
             return -1;
         }
-        
 
         //CONFERMA AL SERVER 
-        char * buf2 = malloc(DIM_MSG*sizeof(char));
-        buf2="ok";
-        SYSCALL(write(sc,buf2,sizeof(buf2)),EREMOTEIO);
+        SYSCALL(write(sc,"ok",3),EREMOTEIO);
     
-
         //RICEVO SIZE
-        char * ssize = malloc (DIM_MSG*sizeof(char));
-        if (ssize == NULL) {
-            free(bufsend);
-            free(bufrec);
-            free(path);
-            errno = ENOTRECOVERABLE;
-            return -1;
-        }
-        SYSCALL(read(sc,ssize,DIM_MSG),EREMOTEIO);
+        char ssize [DIM_MSG];
+        memset(ssize,0,DIM_MSG);
+        SYSCALL(read(sc,ssize,sizeof(ssize)),EREMOTEIO);
         //printf("From Server : SIZE = %s\n",ssize);
-        
         
         char *t2 = strtok(ssize,",");
         if (strcmp(t2,"-1")==0) { //ERRORE DAL SERVER
             t2 = strtok(NULL,",");
             errno = atoi(t2);
-            free(bufsend);
-            free(bufrec);
-            free(path);
-            free(ssize);
             return -1;
         }
         
         int size_file = atoi(ssize);
 
         //CONFERMA AL SERVER 
-        char * buf1 = malloc(DIM_MSG*sizeof(char));
-        buf1="ok";
-        SYSCALL(write(sc,buf1,sizeof(buf1)),EREMOTEIO);
+        SYSCALL(write(sc,"ok",3),EREMOTEIO);
 
         //RICEVO FILE  
-        char * fbuf = malloc (size_file*sizeof(char));
-        if (fbuf == NULL) {
-            free(bufsend);
-            free(bufrec);
-            free(path);
-            free(ssize);
-            errno = ENOTRECOVERABLE;
-            return -1;
-        }
+        char fbuf [size_file];
+        memset(fbuf,0,size_file);
         SYSCALL(read(sc,fbuf,size_file),EREMOTEIO);
         //printf("From Server : FILE = %s\n",fbuf);
         
-        
         char *t3 = strtok(fbuf,",");
-        if (strcmp(t3,"-1")==0) { //ERRORE DAL SERVER
-            t3 = strtok(NULL,",");
-            errno = atoi(t3);
-            free(bufsend);
-            free(bufrec);
-            free(path);
-            free(ssize);
-            free(fbuf);
-            return -1;
+        if (t3!=NULL) {
+            if (strcmp(t3,"-1")==0) { //ERRORE DAL SERVER
+                t3 = strtok(NULL,",");
+                errno = atoi(t3);
+                return -1;
+            }
         }
-        
 
         if (dirname!=NULL) {
             //SALVA IN DIR
             char sp[PATH_MAX];
+            memset(sp,0,PATH_MAX);
             char * file_name = basename(path);
             sprintf(sp,"%s/%s",dirname,file_name);
             //printf("FILE : %s\n",sp);
@@ -512,16 +471,10 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
             }
         }
         //printf("PATH=%s SIZE=%d CONTENUTO=%s\n",path,size_file,fbuf);
-        
-        free(path);
-        free(ssize);
-        free(fbuf);
 
     }
 
     //SUCCESSO --> RITORNO IL NUMERO DI FILE LETTI 
-    free(bufsend);
-    free(bufrec);
     return nf;
 
 }
