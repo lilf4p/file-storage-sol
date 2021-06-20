@@ -148,50 +148,55 @@ int writeFile(const char* pathname, const char* dirname) {
     struct stat st;
     fstat(fd,&st);
     size_file = st.st_size;
-    char * file_buffer = malloc((size_file+1)*sizeof(char));
-    if (file_buffer==NULL) {
-        errno = ENOMEM;
-        return -1;
-    }
+    //printf("SIZE FILE : %d\n",size_file);
+    if (size_file>0) { 
+        char * file_buffer = malloc((size_file+1)*sizeof(char));
+        if (file_buffer==NULL) {
+            errno = ENOMEM;
+            return -1;
+        }
 
-    //LEGGO IL FILE E LO SCRIVO NEL BUFFER DA INVIARE 
-    int newLen = read(fd,file_buffer,size_file);
-    if (newLen==-1) {
-        errno = EREMOTEIO;
-        free(file_buffer);
-        return -1;
+        //LEGGO IL FILE E LO SCRIVO NEL BUFFER DA INVIARE 
+        int newLen = read(fd,file_buffer,size_file);
+        if (newLen==-1) {
+            errno = EREMOTEIO;
+            free(file_buffer);
+            return -1;
+        }else{
+            file_buffer[newLen++] = '\0';
+        }
+        close(fd);
+
+        //INVIO SIZE FILE
+        char *tmp = malloc(DIM_MSG*sizeof(char));
+        sprintf(tmp,"%d",size_file);
+        SYSCALL(write(sc,tmp,sizeof(tmp)),EREMOTEIO);
+
+        //CONFERMA DAL SERVER
+        char conf[DIM_MSG];
+        SYSCALL(read(sc,conf,DIM_MSG),EREMOTEIO);
+
+        //INVIO FILE
+        SYSCALL(write(sc,file_buffer,size_file+1),EREMOTEIO);
+
+        //RISPOSTA SERVER 
+        char * result = malloc(DIM_MSG*sizeof(char));
+        SYSCALL(read(sc,result,DIM_MSG),EREMOTEIO);
+        //printf("From Server : %s\n",response);
+
+        char * t1;
+        t1 = strtok(result,",");
+
+        if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
+            t1 = strtok(NULL,",");
+            errno = atoi(t1);
+            free(file_buffer);
+            return -1;
+        }else{ //SUCCESSO DAL SERVER 
+            free(file_buffer);
+            return 0;
+        }
     }else{
-        file_buffer[newLen++] = '\0';
-    }
-    close(fd);
-
-    //INVIO SIZE FILE
-    char *tmp = malloc(DIM_MSG*sizeof(char));
-    sprintf(tmp,"%d",size_file);
-    SYSCALL(write(sc,tmp,sizeof(tmp)),EREMOTEIO);
-
-    //CONFERMA DAL SERVER
-    char conf[DIM_MSG];
-    SYSCALL(read(sc,conf,DIM_MSG),EREMOTEIO);
-
-    //INVIO FILE
-    SYSCALL(write(sc,file_buffer,size_file+1),EREMOTEIO);
-
-    //RISPOSTA SERVER 
-    char * result = malloc(DIM_MSG*sizeof(char));
-    SYSCALL(read(sc,result,DIM_MSG),EREMOTEIO);
-    //printf("From Server : %s\n",response);
-
-    char * t1;
-    t1 = strtok(result,",");
-
-    if (strcmp(t1,"-1")==0) { //ERRORE DAL SERVER
-        t1 = strtok(NULL,",");
-        errno = atoi(t1);
-        free(file_buffer);
-        return -1;
-    }else{ //SUCCESSO DAL SERVER 
-        free(file_buffer);
         return 0;
     }
     

@@ -334,6 +334,7 @@ int main (int argc, char * argv[]) {
                         }else{
                             if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : positivo\n",file); 
                         }
+                        free(buf);
                     }
                 }
                 token3 = strtok_r(NULL,",",&save3);
