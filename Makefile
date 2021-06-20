@@ -1,5 +1,5 @@
 CC 			= gcc
-CFLAGS		= 
+CFLAGS		= -g -Wall
 TARGETS		= server client
 
 .PHONY: all clean cleanall test1 test2
@@ -8,10 +8,10 @@ TARGETS		= server client
 all : $(TARGETS)
 
 server : src/server.c
-	$(CC) $(FLAGS) $< -o $@ -lpthread
+	$(CC) -g -Wall $< -o $@ -lpthread
 
 client : src/client.c lib/libapi.a
-	$(CC) src/client.c -o $@ -L ./lib/ lib/libapi.a
+	$(CC) -g -Wall src/client.c -o $@ -L ./lib/ lib/libapi.a
 
 objs/api_server.o : src/api_server.c
 	$(CC) -c src/api_server.c -o $@

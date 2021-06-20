@@ -38,6 +38,7 @@ void listDir (char * dirname, int n);
 void addLast (node ** list,char * cmd, char * arg);
 void printList(node * list);
 int containCMD (node ** list, char * cmd, char ** arg);
+void freeList (node ** list);
 
 int main (int argc, char * argv[]) {
 
@@ -154,10 +155,10 @@ int main (int argc, char * argv[]) {
     //printList(listCmd);
 
     //CONTROLLA SE PRESENTI OPZIONI -h -p -t -d -f
-    char * arg; 
+    char * arg=NULL; 
     if (containCMD(&listCmd,"h",&arg)==1) {
         printf("Operazioni supportate : \n-h\n-f filename\n-w dirname[,n=0]\n-W file1[,file2]\n-r file1[,file2]\n-R [n=0]\n-d dirname\n-t time\n-c file1[,file2]\n-p\n");
-        if (listCmd!=NULL) free(listCmd);
+        freeList(&listCmd);
         if (resolvedPath!=NULL) free(resolvedPath);
         return 0;
     }
@@ -380,9 +381,9 @@ int main (int argc, char * argv[]) {
 
     }
 
-    if (listCmd!=NULL) free(listCmd);
+    freeList(&listCmd);
     free(resolvedPath);
-
+    free(arg);
     //FINITE LE OPZIONI DA LINEA DI COMANDO CHIUDO LA CONNESSIONE SE ERA APERTA
     closeConnection(farg);
 
@@ -438,7 +439,7 @@ void listDir (char * dirname, int n) {
                         if (closeFile(resolvedPath)==-1) perror("Errore chiusura file");
                     }
                 }
-                free(resolvedPath);
+                if (resolvedPath!=NULL) free(resolvedPath);
             }
             
         }
@@ -456,10 +457,22 @@ void listDir (char * dirname, int n) {
 void addLast (node ** list,char * cmd,char * arg) {
 
     node * new = malloc (sizeof(node));
+    if (new==NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
     new->cmd = malloc(sizeof(cmd));
+    if (new->cmd==NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
     strcpy(new->cmd,cmd);
     if (arg!=NULL) {
         new->arg = malloc(PATH_MAX*sizeof(char));
+        if (new->arg==NULL) {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
         strcpy(new->arg,arg);
     }else new->arg = NULL;
     new->next = NULL;
@@ -508,18 +521,38 @@ int containCMD (node ** list, char * cmd, char ** arg) {
     if (trovato==1) {
         if (curr->arg!=NULL) {
             *arg = malloc(sizeof(curr->arg));
+            if (*arg==NULL) {
+                perror("malloc");
+                exit(EXIT_FAILURE);
+            }
             strcpy(*arg,curr->arg);
         } else *arg = NULL;
         if (prec == NULL) {
             node * tmp = *list;
             *list = (*list)->next;
+            free(tmp->arg);
+            free(tmp->cmd);
             free(tmp);
         }else{
             prec->next = curr->next;
+            free(curr->arg);
+            free(curr->cmd);
             free(curr);
         }
     }
 
     return trovato;
 
+}
+
+void freeList (node ** list) {
+    node * tmp;
+    while (*list!=NULL) {
+        tmp = *list;
+        free((*list)->arg);
+        free((*list)->cmd);
+        (*list)=(*list)->next;
+        free(tmp);
+    }
+    
 }

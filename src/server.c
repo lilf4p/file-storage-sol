@@ -124,7 +124,6 @@ int main (int argc, char * argv[]) {
         exit(EXIT_FAILURE);
     }
     
-    char * token;
     char arg [100];
     char val [100];
     while (fgets(str,200,fp)!=NULL) {
@@ -232,7 +231,6 @@ int main (int argc, char * argv[]) {
     int num_fd = 0;
     fd_set set;
     fd_set rdset;
-    char buf_pipe[4];
     //PER LA TERMINAZIONE SOFT --> con SIGHUP aspetta che tutti i client si disconnettano
     int num_client = 0; 
     int soft_term = 0; 
@@ -371,7 +369,6 @@ int main (int argc, char * argv[]) {
 void * worker (void * arg) {
 
     int pfd = *((int *)arg);
-    int new = 1;
     int cfd;
     while (1) {
         char request [DIM_MSG];
@@ -574,7 +571,6 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
 
     } else if (strcmp(token,"readNFiles")==0) {
         //readNFiles,N
-        int fine=0;
         int e;
 
         //ARGOMENTI
@@ -834,7 +830,6 @@ char * getFile (char * path, int cfd) {
     char * response = NULL;
 
     SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
-    file ** list = &cache_file;
     file * curr = cache_file;
     int trovato=0;
     while(curr!=NULL && trovato==0) {
@@ -901,8 +896,6 @@ int removeClient (char * path, int cfd) {
     int err;
     SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
 
-    file ** list = &cache_file;
-
     int trovato = 0;
     file * curr = cache_file;
     while (curr!=NULL && trovato==0) {
@@ -944,8 +937,6 @@ int writeData(char * path, char * data, int size, int cfd) {
     int res=0;
     int err;
     SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
-
-    file ** list = &cache_file;
 
     int trovato = 0;
     int scritto = 0;
@@ -995,8 +986,6 @@ int appendData (char * path, char * data, int size, int cfd) {
     int res=0;
     int err;
     SYSCALL_PTHREAD(err,pthread_mutex_lock(&lock_cache),"Lock Cache");
-
-    file ** list = &cache_file;
 
     int trovato = 0;
     int scritto = 0;
