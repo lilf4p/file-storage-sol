@@ -396,7 +396,7 @@ void * worker (void * arg) {
     
         }
     }
-    close(cfd);
+    //close(cfd);
     printf("Closing worker\n");
     fflush(stdout);
     return 0;
@@ -407,7 +407,8 @@ void * worker (void * arg) {
 void eseguiRichiesta (char * request, int cfd, int pfd) {
     char response[DIM_MSG];
     memset(response,0,DIM_MSG);
-    char * token;
+    char * token = NULL;
+    //printf("FROM CLIENT : %s\n",request);
     token = strtok(request,",");
     
     if (token!=NULL) {
