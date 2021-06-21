@@ -14,7 +14,7 @@
 #include <limits.h>
 #include <libgen.h>
 
-#define DIM_MSG 100
+#define DIM_MSG 300
 #define UNIX_PATH_MAX 108 /* man 7 unix */ 
 // utility macro
 #define SYSCALL(c,e) \

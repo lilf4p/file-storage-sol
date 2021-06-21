@@ -14,7 +14,7 @@
 #include <math.h>
 
 #define UNIX_PATH_MAX 108 /* man 7 unix */
-#define DIM_MSG 100 
+#define DIM_MSG 300 
 // utility syscall socket
 #define SYSCALL_SOCKET(s,c,e) \
     if (c==s) { \
@@ -102,94 +102,94 @@ ssize_t readn(int fd, void *ptr, size_t n);
 ssize_t writen(int fd, void *ptr, size_t n);
 
 int main (int argc, char * argv[]) {
-
+    printf("%d\n",DIM_MSG);
     int i;
+    //VALORI DI DEFAULT se non viene passato nessun file di config
+    int num_thread = 1;
+    max_files = 100; 
+    max_dim = 10000;   
+    char * socket_name = "./tmp/LSOfilestorage.sk";
 
-    char * path_config = "config/config.txt";
+    char * path_config = NULL;
     if (argc==3) {
         if (strcmp(argv[1],"-s")==0) {
             path_config = argv[2];
         }
     }
-
-    //VALORI DI DEFAULT
-    int num_thread = 1;
-    max_files = 100; 
-    max_dim = 50;   
-    char * socket_name = "./tmp/LSOfilestorage.sk";
-
     //parsing file config.txt -- attributo=valore -- se trovo errore uso attributi di default 
-    char str [200];
-    FILE * fp;
-    fp = fopen(path_config,"r");
-    if (fp == NULL) {
-        perror("Errore config file");
-        exit(EXIT_FAILURE);
-    }
-    
-    char arg [100];
-    char val [100];
-    while (fgets(str,200,fp)!=NULL) {
-        
-        if (str[0]!='\n') {
-
-            int nt;
-            nt = sscanf (str,"%[^=]=%s",arg,val);
-            if (nt!=2) {
-                printf("Errore config file : formato non corretto\n");
-                printf ("Server avviato con parametri di DEFAULT\n");
-                break;
-            }
-
-            if (arg!=NULL) {
-                if (strcmp(arg,"num_thread")==0) {
-                   
-                    if (val!=NULL) { 
-                        int n;
-                        if ((n=isNumber(val))==-1 || n<=0) {
-                            printf("Errore config file : num_thread richiede un numero>0 come valore\n");
-                            printf ("Server avviato con parametri di DEFAULT\n");
-                            break;
-                        }else{
-                            num_thread = n;
-                        }
-                    }
-                } else if (strcmp(arg,"max_files")==0) {
-                    
-                    if (val!=NULL) { 
-                        int n;
-                        if ((n=isNumber(val))==-1 || n<=0) {
-                            printf("Errore config file : max_files richiede un numero>0 come valore\n");
-                            printf ("Server avviato con parametri di DEFAULT\n");
-                            break;
-                        }else{
-                            max_files = n;
-                        }
-                    }
-                } else if (strcmp(arg,"max_dim")==0) {
-                    
-                    if (val!=NULL) { 
-                        int n;
-                        if ((n=isNumber(val))==-1 || n<=0) {
-                            printf("Errore config file : max_dim richiede un numero>0 come valore\n");
-                            printf ("Server avviato con parametri di DEFAULT\n");
-                            break;
-                        }else{
-                            max_dim = n;
-                        }
-                    }
-                } else if (strcmp(arg,"socket_name")==0) {
-                    
-                    if (val!=NULL) {
-                        strcpy(socket_name,val);
-                    }
-                }
-            } 
-            
+    if (path_config!=NULL) {
+        char str [200];
+        FILE * fp;
+        fp = fopen(path_config,"r");
+        if (fp == NULL) {
+            perror("Errore config file");
+            exit(EXIT_FAILURE);
         }
         
-    }
-    fclose(fp);
+        char arg [100];
+        char val [100];
+        while (fgets(str,200,fp)!=NULL) {
+            
+            if (str[0]!='\n') {
+
+                int nt;
+                nt = sscanf (str,"%[^=]=%s",arg,val);
+                if (nt!=2) {
+                    printf("Errore config file : formato non corretto\n");
+                    printf ("Server avviato con parametri di DEFAULT\n");
+                    break;
+                }
+
+                if (arg!=NULL) {
+                    if (strcmp(arg,"num_thread")==0) {
+                    
+                        if (val!=NULL) { 
+                            int n;
+                            if ((n=isNumber(val))==-1 || n<=0) {
+                                printf("Errore config file : num_thread richiede un numero>0 come valore\n");
+                                printf ("Server avviato con parametri di DEFAULT\n");
+                                break;
+                            }else{
+                                num_thread = n;
+                            }
+                        }
+                    } else if (strcmp(arg,"max_files")==0) {
+                        
+                        if (val!=NULL) { 
+                            int n;
+                            if ((n=isNumber(val))==-1 || n<=0) {
+                                printf("Errore config file : max_files richiede un numero>0 come valore\n");
+                                printf ("Server avviato con parametri di DEFAULT\n");
+                                break;
+                            }else{
+                                max_files = n;
+                            }
+                        }
+                    } else if (strcmp(arg,"max_dim")==0) {
+                        
+                        if (val!=NULL) { 
+                            int n;
+                            if ((n=isNumber(val))==-1 || n<=0) {
+                                printf("Errore config file : max_dim richiede un numero>0 come valore\n");
+                                printf ("Server avviato con parametri di DEFAULT\n");
+                                break;
+                            }else{
+                                max_dim = n;
+                            }
+                        }
+                    } else if (strcmp(arg,"socket_name")==0) {
+                        
+                        if (val!=NULL) {
+                            strcpy(socket_name,val);
+                        }
+                    }
+                } 
+                
+            }
+            
+        }
+        fclose(fp);
+    } else printf("Server avviato con parametri di DEFAULT\n");
 
     printf("socket_name:%s num_thread:%d max_files:%d max_dim:%d\n",socket_name,num_thread,max_files,max_dim); 
 

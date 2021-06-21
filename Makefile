@@ -29,13 +29,13 @@ cleanall :
 
 #LANCIA IL PRIMO TEST
 test1 : $(TARGETS)
-	valgrind --leak-check=full ./server -s config/config_test1.txt &
+	valgrind --leak-check=full ./server -s configTest1/config.txt &
 	chmod +x test1.sh 
 	./test1.sh &
 
 #LANCIA SECONDO TEST
 test2 : $(TARGETS)
-	./server -s config/config_test2.txt &
+	./server -s configTest2/config.txt &
 	chmod +x test2.sh 
 	./test2.sh &	
 
