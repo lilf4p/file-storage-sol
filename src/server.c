@@ -834,15 +834,17 @@ int addFile (char * path, int flag, int cfd) {
         }
     }else if (flag==0 && trovato==1) { //APRO IL FILE PER CFD
         //printf("ADDFILE : APRO FILE\n");
-        //TODO : INSERIRE SSE LA LISTA CLIENT_OPEN NON CONTINE GIA' IL CFD -- CONTROLLO DUPLICATI
-        node * new = malloc (sizeof(node));
-        if (new==NULL) {
-            perror("malloc");
-            exit(EXIT_FAILURE);
+        //INSERIRE SSE LA LISTA CLIENT_OPEN NON CONTINE GIA' IL CFD -- CONTROLLO DUPLICATI
+        if (fileOpen(curr->client_open,cfd)==0) {
+            node * new = malloc (sizeof(node));
+            if (new==NULL) {
+                perror("malloc");
+                exit(EXIT_FAILURE);
+            }
+            new->data = cfd;
+            new->next = curr->client_open;
+            curr->client_open = new;
         }
-        new->data = cfd;
-        new->next = curr->client_open;
-        curr->client_open = new;
     }else {
         
         if (flag==0 && trovato==0) res=-1; //FILE NON ESISTE NON PUO' ESSERE APERTO
