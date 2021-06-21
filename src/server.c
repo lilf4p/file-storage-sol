@@ -14,7 +14,7 @@
 #include <math.h>
 
 #define UNIX_PATH_MAX 108 /* man 7 unix */
-#define DIM_MSG 300 
+#define DIM_MSG 1000 
 // utility syscall socket
 #define SYSCALL_SOCKET(s,c,e) \
     if (c==s) { \
@@ -296,7 +296,10 @@ int main (int argc, char * argv[]) {
                     if (cfd > num_fd) num_fd = cfd;
                     num_client++;
                     printf ("Connection accepted from client!\n");
-                    if (writen(cfd,"Welcome to lilf4p server!",DIM_MSG)==-1) {
+                    char buf [DIM_MSG];
+                    memset(buf,0,DIM_MSG);
+                    strcpy(buf,"Welcome to lilf4p server!");
+                    if (writen(cfd,buf,DIM_MSG)==-1) {
                         perror("Errore write welcome message");
                         FD_CLR(cfd,&set);
                         if (cfd == num_fd) num_fd = updatemax(set,num_fd);

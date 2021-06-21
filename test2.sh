@@ -1,6 +1,6 @@
 #!/bin/bash
+sleep 2 #aspetto che si sia avviato il server 
 echo "Avvio script client"
-sleep 2
 #TESTA RIMPIAZZAMENTO IN CACHE SERVER
 ./client -f "./tmp/LSOfilestorage.sk" -w testfile/subdir -p
 ./client -f "./tmp/LSOfilestorage.sk" -w testfile/prova -p

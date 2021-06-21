@@ -1,5 +1,5 @@
 #!/bin/bash
-sleep 2 
+sleep 2 #aspetto che si sia avviato il server 
 
 echo "Avvio script client"
 

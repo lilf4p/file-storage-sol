@@ -19,7 +19,7 @@ gcc client.c -o client -L ./ -lapi
 
 */
 
-#define DIM_MSG 300
+#define DIM_MSG 1000
 // utility macro
 #define APICALL(c,e) \
     if(c==-1) { perror(e);exit(EXIT_FAILURE); }
