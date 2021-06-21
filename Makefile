@@ -14,7 +14,7 @@ client : src/client.c lib/libapi.a
 	$(CC) -g -Wall src/client.c -o $@ -L ./lib/ lib/libapi.a
 
 objs/api_server.o : src/api_server.c
-	$(CC) -c src/api_server.c -o $@
+	$(CC) -g -c src/api_server.c -o $@
 
 lib/libapi.a : objs/api_server.o 
 	ar rcs lib/libapi.a objs/api_server.o

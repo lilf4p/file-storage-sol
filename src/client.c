@@ -26,6 +26,7 @@ gcc client.c -o client -L ./ -lapi
 
 int flag_stampa=0;
 static int num_files = 0;
+int tms;
 
 typedef struct node {
     char * cmd;
@@ -53,7 +54,7 @@ int main (int argc, char * argv[]) {
     tfnd=0;
     
     char *dir = NULL;
-    int tms=0;
+    tms=0;
 
     node * listCmd = NULL;
     char * resolvedPath = NULL;
@@ -167,15 +168,15 @@ int main (int argc, char * argv[]) {
         printf("Operazione : -p (abilta stampe) Esito : positivo\n");
     }
     if (containCMD(&listCmd,"t",&arg)==1) {
-        if ((tms=isNumber(arg))==-1) {
-            if (flag_stampa==1) printf("Operazione : -t (ritardo) Tempo : %s Esito : negativo\n",arg);
+        if ((tms=isNumber(targ))==-1) {
+            if (flag_stampa==1) printf("Operazione : -t (ritardo) Tempo : %s Esito : negativo\n",targ);
             printf("L'opzione -t richiede un numero come argomento\n");
         }else{
             if (flag_stampa==1) printf("Operazione : -t (ritardo) Tempo : %d Esito : positivo\n",tms);
         }
     }
     if (containCMD(&listCmd,"d",&arg)==1) {
-        if (flag_stampa==1) printf("Operazione : -d (salva file) Directory : %s Esito : positivo\n",arg);
+        if (flag_stampa==1) printf("Operazione : -d (salva file) Directory : %s Esito : positivo\n",dir);
         dfnd = 1;
     }
     if (containCMD(&listCmd,"f",&arg)==1) {
@@ -183,10 +184,10 @@ int main (int argc, char * argv[]) {
         clock_gettime(CLOCK_REALTIME,&ts);
         ts.tv_sec = ts.tv_sec+60;
         if (openConnection(farg,1000,ts)==-1) {
-            if (flag_stampa==1) printf("Operazione : -f (connessione) File : %s Esito : negativo\n",arg);
+            if (flag_stampa==1) printf("Operazione : -f (connessione) File : %s Esito : negativo\n",farg);
             perror("Errore apertura connessione");
         }else{
-            if (flag_stampa==1) printf("Operazione : -f (connessione) File : %s Esito : positivo\n",arg);
+            if (flag_stampa==1) printf("Operazione : -f (connessione) File : %s Esito : positivo\n",farg);
         } 
     }
 
@@ -300,7 +301,7 @@ int main (int argc, char * argv[]) {
                     perror("Errore apertura file");
                 }else{
                     //READ FILE
-                    char * buf;
+                    char * buf = NULL;
                     size_t size;
                     if (readFile(file,(void**)&buf,&size)==-1) {
                         if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : negativo\n",file); 
@@ -427,6 +428,7 @@ void listDir (char * dirname, int n) {
             //STAMPO INFO FILE
             //printf ("\n%s\t%ld\t",path,info.st_size);
             //E' UN FILE --> OPEN,WRITE,CLOSE
+            
             char * resolvedPath = NULL;
             if ((resolvedPath = realpath(path,resolvedPath))==NULL) {
                 perror("realpath");
@@ -442,6 +444,7 @@ void listDir (char * dirname, int n) {
                 }
                 if (resolvedPath!=NULL) free(resolvedPath);
             }
+            msleep(tms);
             
         }
 
@@ -521,12 +524,8 @@ int containCMD (node ** list, char * cmd, char ** arg) {
 
     if (trovato==1) {
         if (curr->arg!=NULL) {
-            *arg = malloc(sizeof(curr->arg));
-            if (*arg==NULL) {
-                perror("malloc");
-                exit(EXIT_FAILURE);
-            }
-            strcpy(*arg,curr->arg);
+            char arg [strlen(curr->arg)];
+            strcpy(arg,curr->arg);
         } else *arg = NULL;
         if (prec == NULL) {
             node * tmp = *list;
