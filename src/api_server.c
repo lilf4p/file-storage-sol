@@ -154,6 +154,10 @@ int writeFile(const char* pathname, const char* dirname) {
     //printf("SIZE FILE : %d\n",size_file);
     if (size_file>0) { 
         char * file_buffer = malloc((size_file+1)*sizeof(char));
+        if (file_buffer==NULL) {
+            errno=ENOTRECOVERABLE;
+            return -1;
+        }
         //char file_buffer[size_file+1];
         //memset(file_buffer,0,size_file+1);
         //LEGGO IL FILE E LO SCRIVO NEL BUFFER DA INVIARE 
@@ -269,7 +273,7 @@ int appendToFile(const char* pathname, void* buf,size_t size, const char* dirnam
         return -1;
     }
 
-    char * buffer = malloc(DIM_MSG*sizeof(char));
+    char buffer [DIM_MSG];
     sprintf(buffer, "appendToFile,%s",pathname);
 
     SYSCALL(writen(sc,buffer,DIM_MSG),EREMOTEIO);
@@ -357,6 +361,10 @@ int readFile(const char* pathname, void** buf, size_t* size) {
 
     //RICEVO FILE 
     *buf = malloc((size_file+1)*sizeof(char));
+    if (*buf==NULL) {
+        errno=ENOTRECOVERABLE;
+        return -1;
+    }
     SYSCALL(readn(sc,*buf,size_file),EREMOTEIO);
 
     //printf("From Server : %s\n",file);
@@ -445,6 +453,10 @@ int readNFiles(int N, const char* dirname) { // TODO : BUG
         //char fbuf [size_file];
         //memset(fbuf,0,size_file);
         char * fbuf = malloc(size_file*sizeof(char));
+        if (fbuf==NULL) {
+            errno = ENOTRECOVERABLE;
+            return -1;
+        }
         SYSCALL(readn(sc,fbuf,size_file),EREMOTEIO);
         //printf("From Server : FILE = %s\n",fbuf);
         
