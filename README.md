@@ -6,9 +6,9 @@ Il server memorizza i file in memoria principale e offre operazioni per aggiunge
 
 Comandi da eseguire nella directory principale : 
 
-make 		    costruisce gli eseguibili "server" e "client"
-make test1	    avvia il primo test
-make test2	    avvia il secondo test
-make clean	    elimina gli eseguibili "server" e "client" 
-make cleanall	elimina tutti i file generati da make (eseguibili, oggetto, temporanei, librearie, ...)
+- make 		        costruisce gli eseguibili "server" e "client"
+- make test1	    avvia il primo test
+- make test2	    avvia il secondo test
+- make clean	    elimina gli eseguibili "server" e "client" 
+- make cleanall	  elimina tutti i file generati da make (eseguibili, oggetto, temporanei, librerie, ...)
 
