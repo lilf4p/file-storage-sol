@@ -16,10 +16,19 @@
 #define UNIX_PATH_MAX 108 /* man 7 unix */
 #define DIM_MSG 1000 
 // utility syscall socket
-#define SYSCALL_SOCKET(s,c,e) \
-    if (c==s) { \
+#define SYSCALL_WRITE(c,e) \
+    if (c==-1) { \
         perror(e); \
-        int fine=0; \
+        int fine=-1; \
+        write(pfd,&cfd,sizeof(cfd)); \
+        write(pfd,&fine,sizeof(fine)); \
+        return; \
+    }
+#define SYSCALL_READ(s,c,e) \
+    s = c; \
+    if (s==0 || s==-1) { \
+        perror(e); \
+        int fine=-1; \
         write(pfd,&cfd,sizeof(cfd)); \
         write(pfd,&fine,sizeof(fine)); \
         return; \
@@ -101,12 +110,11 @@ ssize_t readn(int fd, void *ptr, size_t n);
 ssize_t writen(int fd, void *ptr, size_t n);
 
 int main (int argc, char * argv[]) {
-    printf("%d\n",DIM_MSG);
     int i;
     //VALORI DI DEFAULT se non viene passato nessun file di config
     int num_thread = 1;
     max_files = 100; 
-    max_dim = 10000;   
+    max_dim = 100000;   
     char * socket_name = "./tmp/LSOfilestorage.sk";
 
     char * path_config = NULL;
@@ -391,7 +399,9 @@ void * worker (void * arg) {
             SYSCALL_EXIT(write(pfd,&cfd,sizeof(cfd)),"THREAD : pipe write");
             SYSCALL_EXIT(write(pfd,&fine,sizeof(fine)),"THREAD : pipe write");
         }else if (len == -1) {
-            perror("THREAD : READ 0");
+            fine = -1;
+            SYSCALL_EXIT(write(pfd,&cfd,sizeof(cfd)),"THREAD : pipe write");
+            SYSCALL_EXIT(write(pfd,&fine,sizeof(fine)),"THREAD : pipe write");
         }else{
             
             //RICHIESTA RICEVUTA DAL CLIENT 
@@ -413,6 +423,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
     char response[DIM_MSG];
     memset(response,0,DIM_MSG);
     char * token = NULL;
+    int s;
 
     if (request!=NULL) token = strtok(request,",");
     
@@ -437,7 +448,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
             }else{
                 sprintf(response,"0");
             }
-            SYSCALL_SOCKET(-1,writen(cfd,response,DIM_MSG),"THREAD : socket write");
+            SYSCALL_WRITE(writen(cfd,response,DIM_MSG),"THREAD : socket write");
             //printf("NUMERO FILE : %d\n",sizeList());
             //printFile();
 
@@ -455,7 +466,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
             }else{
                 sprintf(response,"0");
             }
-            SYSCALL_SOCKET(-1,writen(cfd,response,DIM_MSG),"THREAD : socket write");
+            SYSCALL_WRITE(writen(cfd,response,DIM_MSG),"THREAD : socket write");
             //printf("NUMERO FILE : %d\n",sizeList());
             //printFile();
 
@@ -471,7 +482,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
             }else{
                 sprintf(response,"0");
             }
-            SYSCALL_SOCKET(-1,writen(cfd,response,DIM_MSG),"THREAD : socket write");
+            SYSCALL_WRITE(writen(cfd,response,DIM_MSG),"THREAD : socket write");
             //printf("NUMERO FILE : %d\n",sizeList());
             //printFile();
 
@@ -485,18 +496,18 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
 
             //INVIA AL CLIENT PERMESSO PER INVIARE FILE
             sprintf(response,"0");
-            SYSCALL_SOCKET(-1,writen(cfd,response,DIM_MSG),"writeFile : socket write2");
+            SYSCALL_WRITE(writen(cfd,response,DIM_MSG),"writeFile : socket write2");
                 
             //RICEVO DAL CLIENT SIZE FILE 
             char buf1 [DIM_MSG];
             memset(buf1,0,DIM_MSG);
-            SYSCALL_SOCKET(0,readn(cfd,buf1,DIM_MSG),"writeFile : socket read2");
+            SYSCALL_READ(s,readn(cfd,buf1,DIM_MSG),"writeFile : socket read2");
             //printf("FROM CLIENT SIZE : %s\n",buf1);
             //fflush(stdout);
             int size_file = atoi(buf1);
 
             //INVIO CONFERMA AL CLIENT
-            SYSCALL_SOCKET(-1,writen(cfd,"0",DIM_MSG),"writeFile : conferma al client");
+            SYSCALL_WRITE(writen(cfd,"0",DIM_MSG),"writeFile : conferma al client");
 
             //RICEVO IL FILE
             //char buf2 [size_file+1];
@@ -506,7 +517,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
                 perror("malloc");
                 exit(EXIT_FAILURE);
             }
-            SYSCALL_SOCKET(0,readn(cfd,buf2,(size_file+1)),"writeFile : socket read3");
+            SYSCALL_READ(s,readn(cfd,buf2,(size_file+1)),"writeFile : socket read3");
             
             //printf("FROM CLIENT FILE : %s\n",buf2);
             //fflush(stdout);
@@ -525,7 +536,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
                 sprintf(result,"0");
             }
             free(buf2);
-            SYSCALL_SOCKET(-1,writen(cfd,result,DIM_MSG),"writeFile : socket write3");
+            SYSCALL_WRITE(writen(cfd,result,DIM_MSG),"writeFile : socket write3");
 
         } else if (strcmp(token,"appendToFile")==0) {
             //appendToFile,pathname,buf,size
@@ -536,20 +547,20 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
 
             //INVIA AL CLIENT PERMESSO PER INVIARE FILE O ERRORE
             sprintf(response,"0");
-            SYSCALL_SOCKET(-1,writen(cfd,response,DIM_MSG),"appendToFile : socket write2");
+            SYSCALL_WRITE(writen(cfd,response,DIM_MSG),"appendToFile : socket write2");
                 
             //RICEVO DAL CLIENT SIZE FILE 
             char buf1 [DIM_MSG];
-            SYSCALL_SOCKET(0,readn(cfd,buf1,DIM_MSG),"appendToFile : socket read2");
+            SYSCALL_READ(s,readn(cfd,buf1,DIM_MSG),"appendToFile : socket read2");
             //printf("FROM CLIENT SIZE : %s\n",buf1);
             int size_file = atoi(buf1);
 
             //INVIA CONFERMA AL CLIENT
-            SYSCALL_SOCKET(-1,writen(cfd,"0",DIM_MSG),"writeFile : conferma al client");
+            SYSCALL_WRITE(writen(cfd,"0",DIM_MSG),"writeFile : conferma al client");
 
             //E IL FILE
             char buf2 [size_file+1];
-            SYSCALL_SOCKET(0,readn(cfd,buf2,size_file),"appendToFile : socket read3");
+            SYSCALL_READ(s,readn(cfd,buf2,size_file),"appendToFile : socket read3");
             //printf("FROM CLIENT FILE : %s\n",buf2);
             //fflush(stdout);
 
@@ -565,7 +576,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
             }else{
                 sprintf(result,"0");
             }
-            SYSCALL_SOCKET(-1,writen(cfd,result,DIM_MSG),"appendToFile : socket write3");
+            SYSCALL_WRITE(writen(cfd,result,DIM_MSG),"appendToFile : socket write3");
 
         } else if (strcmp(token,"readFile")==0) {
             //readFile,path
@@ -583,20 +594,20 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
             if (fb==NULL) {
                 //INVIO ERRORE
                 sprintf(buf,"-1,%d",EPERM);
-                SYSCALL_SOCKET(-1,writen(cfd,buf,DIM_MSG),"readFile : socket write2");
+                SYSCALL_WRITE(writen(cfd,buf,DIM_MSG),"readFile : socket write2");
             }else{
                 //INVIO SIZE FILE
                 sprintf(buf,"%ld",strlen(fb));
-                SYSCALL_SOCKET(-1,writen(cfd,buf,DIM_MSG),"readFile : socket write3");
+                SYSCALL_WRITE(writen(cfd,buf,DIM_MSG),"readFile : socket write3");
 
                 char buf1 [DIM_MSG];
                 memset(buf1,0,DIM_MSG);
-                SYSCALL_SOCKET(0,readn(cfd,buf1,DIM_MSG),"readFile :  socket read2");
+                SYSCALL_READ(s,readn(cfd,buf1,DIM_MSG),"readFile :  socket read2");
                 //printf("FROM CLIENT : %s",buf1);
                 fflush(stdout);
                 if (strcmp(buf1,"0")==0) {
                     //INVIO FILE 
-                    SYSCALL_SOCKET(-1,writen(cfd,fb,strlen(fb)),"readFile : socket write4");
+                    SYSCALL_WRITE(writen(cfd,fb,strlen(fb)),"readFile : socket write4");
                 }
             }
 
@@ -617,12 +628,12 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
             char nbuf[DIM_MSG];
             memset(nbuf,0,DIM_MSG);
             sprintf(nbuf,"%d",n_richiesti);
-            SYSCALL_SOCKET(-1,writen(cfd,nbuf,DIM_MSG),"readNFiles : write1");
+            SYSCALL_WRITE(writen(cfd,nbuf,DIM_MSG),"readNFiles : write1");
             
             //RICEVO LA CONFERMA DEL CLIENT
             char conf0 [DIM_MSG];
             memset(conf0,0,DIM_MSG);
-            SYSCALL_SOCKET(0,readn(cfd,conf0,DIM_MSG),"readNFiles : read2");
+            SYSCALL_READ(s,readn(cfd,conf0,DIM_MSG),"readNFiles : read2");
             //printf("From client : %s\n",conf0);
             
             
@@ -634,28 +645,28 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
                 char path [PATH_MAX];
                 memset(path,0,PATH_MAX);
                 sprintf(path,"%s",curr->path);
-                SYSCALL_SOCKET(-1,writen(cfd,path,DIM_MSG),"readNFiles : write2");
+                SYSCALL_WRITE(writen(cfd,path,DIM_MSG),"readNFiles : write2");
 
                 //RICEVO LA CONFERMA DEL CLIENT
                 char conf1 [DIM_MSG];
                 memset(conf1,0,DIM_MSG);
-                SYSCALL_SOCKET(0,readn(cfd,conf1,DIM_MSG),"readNFiles : read3");
+                SYSCALL_READ(s,readn(cfd,conf1,DIM_MSG),"readNFiles : read3");
                 //printf("From client : %s\n",conf1);
 
                 //INVIO SIZE 
                 char ssize [DIM_MSG];
                 memset(ssize,0,DIM_MSG);
                 sprintf(ssize,"%ld",strlen(curr->data));
-                SYSCALL_SOCKET(-1,writen(cfd,ssize,DIM_MSG),"readNFiles : write3");
+                SYSCALL_WRITE(writen(cfd,ssize,DIM_MSG),"readNFiles : write3");
 
                 //RICEVO LA CONFERMA DEL CLIENT
                 char conf2 [DIM_MSG];
                 memset(conf2,0,DIM_MSG);
-                SYSCALL_SOCKET(0,readn(cfd,conf2,DIM_MSG),"readNFiles : read4");
+                SYSCALL_READ(s,readn(cfd,conf2,DIM_MSG),"readNFiles : read4");
                 //printf("From client : %s\n",conf2);
 
                 //INVIA FILE
-                SYSCALL_SOCKET(-1,writen(cfd,curr->data,strlen(curr->data)),"readNFiles : write4");
+                SYSCALL_WRITE(writen(cfd,curr->data,strlen(curr->data)),"readNFiles : write4");
 
                 curr = curr->next;
             }
@@ -664,7 +675,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
         } else {
             //ENOSYS
             sprintf(response,"-1,%d",ENOSYS);
-            SYSCALL_SOCKET(-1,writen(cfd,response,DIM_MSG),"THREAD : socket write");
+            SYSCALL_WRITE(writen(cfd,response,DIM_MSG),"THREAD : socket write");
         }
 
         //RITORNA IL CLIENT AL MANAGER TRAMITE LA PIPE

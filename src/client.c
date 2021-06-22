@@ -262,16 +262,15 @@ int main (int argc, char * argv[]) {
                             if (writeFile(resolvedPath,NULL)==-1) {
                                 if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file);
                                 perror("Errore scrittura file");
-                            } else {  
+                            } 
 
-                                if (closeFile(resolvedPath)==-1) {
-                                    if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file); 
-                                    perror("Errore chiusura file");
-                                }else{
-                                    if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : positivo\n",file); 
-                                }
-
+                            if (closeFile(resolvedPath)==-1) {
+                                if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : negativo\n",file); 
+                                perror("Errore chiusura file");
+                            }else{
+                                if (flag_stampa==1) printf("Operazione : -W (scrivi file) File : %s Esito : positivo\n",file); 
                             }
+
                         }
 
                     } else {
@@ -325,14 +324,14 @@ int main (int argc, char * argv[]) {
                                 fclose(of);
                             }
                         }
-                        //printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
-                        if (closeFile(file)==-1) {
-                            if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : negativo\n",file); 
-                            perror("Errore chiusura file");
-                        }else{
-                            if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : positivo\n",file); 
-                        }
                         free(buf);
+                    }
+                    //printf ("FROM SERVER\nSIZE: %ld\nFILE: %s\n",size,buf); 
+                    if (closeFile(file)==-1) {
+                        if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : negativo\n",file); 
+                        perror("Errore chiusura file");
+                    }else{
+                        if (flag_stampa==1) printf("Operazione : -r (leggi file) File : %s Esito : positivo\n",file); 
                     }
                 }
                 token3 = strtok_r(NULL,",",&save3);
@@ -434,10 +433,8 @@ void listDir (char * dirname, int n) {
                 else {
                     num_files++;
                     //WRITE FILE
-                    if (writeFile(resolvedPath,NULL)==-1) perror("Errore scrittura file");
-                    else {  
-                        if (closeFile(resolvedPath)==-1) perror("Errore chiusura file");
-                    }
+                    if (writeFile(resolvedPath,NULL)==-1) perror("Errore scrittura file");  
+                    if (closeFile(resolvedPath)==-1) perror("Errore chiusura file");
                 }
                 if (resolvedPath!=NULL) free(resolvedPath);
             }
