@@ -26,3 +26,14 @@ CLI client :
 - -t time             : ritardo in ms tra le richieste al server 
 - -c file1[,file2]    : elimina i file dal server
 - -p                  : abilita stampe su stdout per ogni operazione
+
+Struttura directory : 
+- configTest1 : contiene config.tx per il test 1
+- configTest2 : contiene config.txt per il test 2
+- downloadTest1 : file scaricati dal test 1
+- downloadTest2 : file scaricati dal test 2
+- testfile : contiene i file utilizzati dai test 1 e 2
+- tmp : contiene il file socket .sk
+- src : contiene i file sorgente .c
+- objs : contiene i file oggetto .o
+- lib : contiene le librearie .a  
