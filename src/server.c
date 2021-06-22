@@ -42,16 +42,15 @@ typedef struct node {
 } node;
 
 typedef struct file {
-    char path[PATH_MAX];
-    char * data;
-    node * client_open;
+    char path[PATH_MAX]; //nome 
+    char * data; //contenuto file 
+    node * client_open; //lista client che lo hanno aperto
     int client_write; //FILE DESCRIPTOR DEL CLIENT CHE HA ESEGUITO COME ULTIMA OPERAZIONE UNA openFile con flag O_CREATE
-    //info utili per ogni file
     struct file * next; 
 } file;
 
 
-//TODO : STRUTTURA DATI PER SALVARE I FILE
+//STRUTTURA DATI PER SALVARE I FILE
 file * cache_file = NULL;
 pthread_mutex_t lock_cache = PTHREAD_MUTEX_INITIALIZER;
 int dim_byte; //DIMENSIONE CACHE IN BYTE
@@ -344,7 +343,7 @@ int main (int argc, char * argv[]) {
         if (soft_term==1) break;
     } 
 
-    //TODO : STAMPA STATISTICHE RIASSUNTE  
+    //STAMPA STATISTICHE RIASSUNTE  
 
     printf("Closing server...\n");
     for (int i=0;i<num_thread;i++) {
@@ -554,7 +553,7 @@ void eseguiRichiesta (char * request, int cfd, int pfd) {
             //printf("FROM CLIENT FILE : %s\n",buf2);
             //fflush(stdout);
 
-            //TODO: AGGIUNGO I DATI AL FILE IN CACHE
+            //AGGIUNGO I DATI AL FILE IN CACHE
             char result [DIM_MSG];
             int res;
             if ((res=appendData(path,buf2,size_file,cfd))==-1) {
@@ -754,7 +753,7 @@ static void gestore_term (int signum) {
     if (signum==SIGINT || signum==SIGQUIT) {
         term = 1;
     } else if (signum==SIGHUP) {
-        //TODO : gestisci terminazione soft 
+        //gestisci terminazione soft 
         term = 2;
     } 
 }
@@ -876,7 +875,7 @@ char * getFile (char * path, int cfd) {
     int trovato=0;
     while(curr!=NULL && trovato==0) {
         if (strcmp(curr->path,path)==0) {
-            //TODO : CONTROLLA CHE CFD ABBIA APERTO IL FILE !!!
+            //CONTROLLA CHE CFD ABBIA APERTO IL FILE
             trovato=1;
             if (fileOpen(curr->client_open,cfd)==1) {
                 response = curr->data;
@@ -1044,7 +1043,7 @@ int appendData (char * path, char * data, int size, int cfd) {
                 if (tmp != NULL) {
                     //CONTROLLA LIMITE MEMORIA
                     if (dim_byte + size > max_dim) {
-                        //TODO : RIMUOVI FILE 
+                        //RIMUOVI FILE 
                         if (resize_cache(size) == -1) res = -3;
                         else resize++;  
                     }

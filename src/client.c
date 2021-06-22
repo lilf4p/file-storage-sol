@@ -20,9 +20,6 @@ gcc client.c -o client -L ./ -lapi
 */
 
 #define DIM_MSG 1000
-// utility macro
-#define APICALL(c,e) \
-    if(c==-1) { perror(e);exit(EXIT_FAILURE); }
 
 int flag_stampa=0;
 static int num_files = 0;
